@@ -1,0 +1,6 @@
+*.so
+*.pyc
+output
+tensorboard
+lib/build
+.idea
