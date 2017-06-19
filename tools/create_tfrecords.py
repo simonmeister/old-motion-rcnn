@@ -2,38 +2,30 @@ from __future__ import absolute_import, division, print_function
 
 import tensorflow as tf
 
+import _init_paths
 from datasets.cityscapes.tfrecords import create_records as create_cityscapes
+from model.config import cfg
 
 tf.app.flags.DEFINE_string(
-    'dataset_name', 'cityscapes',
-    'The name of the dataset to convert.')
+    'data', 'cityscapes',
+    'The name of the dataset to create tfrecords for.')
 
 tf.app.flags.DEFINE_string(
-    'datasets_dir', '',
-    'Data source directory.')
+    'split', 'mini',
+    'Dataset split to create. One of (train,val,test,mini)')
 
 tf.app.flags.DEFINE_bool(
     'shuffle', True,
-    'Whether to shuffle files before storing them in shards. Should be True for training data.')
-
-tf.app.flags.DEFINE_string(
-    'records_dir', '/home/smeister/datasets/motion-rcnn/records',
-    'Where to store tfrecords for use during training.')
+    'Whether to shuffle files before storing them in shards. Should be True for training splits.')
 
 FLAGS = tf.app.flags.FLAGS
 
 
 def main(_):
-    if not FLAGS.dataset_name:
-        raise ValueError('You must supply the dataset name with --dataset_name')
-    if not FLAGS.dataset_dir:
-        raise ValueError('You must supply the dataset directory with --dataset_dir')
-
-    if FLAGS.dataset_name == 'cityscapes':
-        create_cityscapes(FLAGS.records_dir, FLAGS.datasets_dir, FLAGS.dataset_split_name)
+    if FLAGS.data == 'cityscapes':
+        create_cityscapes(cfg.TFRECORD_DIR, FLAGS.DATA_DIR, FLAGS.split)
     else:
-        raise ValueError(
-            'dataset_name [%s] was not recognized.' % FLAGS.dataset_name)
+        raise ValueError('invalid dataset')
 
 
 if __name__ == '__main__':

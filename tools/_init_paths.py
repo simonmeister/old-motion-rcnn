@@ -10,3 +10,6 @@ this_dir = osp.dirname(__file__)
 # Add lib to PYTHONPATH
 lib_path = osp.join(this_dir, '..', 'lib')
 add_path(lib_path)
+
+cityscapes_path = osp.join(this_dir, '..', 'data', 'cityscapes', 'cityscapesScripts') # TODO
+add_path(coco_path)

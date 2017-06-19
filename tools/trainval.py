@@ -1,38 +1,17 @@
 from __future__ import absolute_import, division, print_function
 
+import argparse
+import pprint
+import sys
+
 import tensorflow as tf
 
+import _init_paths
 from datasets.cityscapes.labels import NUM_TRAIN_CLASSES
 from datasets.factory import get_dataset
 from model.train_val import Trainer
 from model.config import cfg, cfg_from_file, cfg_from_list, write_cfg_to_file
 from nets.resnet_v1 import resnetv1
-
-tf.app.flags.DEFINE_string(
-    'dataset', 'cityscapes',
-    'The dataset to train.')
-
-tf.app.flags.DEFINE_string(
-    'epochs', '',
-    'Epoch or comma-separated list of epochs to train.')
-
-tf.app.flags.DEFINE_string(
-    'lrs', '',
-    'Learning rate or comma-separated list of learning rates to train.')
-
-tf.app.flags.DEFINE_string(
-    'train_split', 'train',
-    'Dataset split to train on.')
-
-tf.app.flags.DEFINE_string(
-    'val_split', 'val',
-    'Dataset split to validate on.')
-
-tf.app.flags.DEFINE_string(
-    'tag', '',
-    'Model tag.')
-
-FLAGS = tf.app.flags.FLAGS
 
 
 def parse_args():

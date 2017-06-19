@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import os
 import os.path as osp
+import yaml
 import numpy as np
 # `pip install easydict` if you don't have it
 from easydict import EasyDict as edict
@@ -44,7 +45,7 @@ __C.TRAIN.BIAS_DECAY = False
 __C.TRAIN.USE_GT = False
 
 # The maximum number of checkpoints stored, older ones are deleted to save space
-__C.TRAIN.CHECKPOINTS_MAX_TO_KEEP = 10
+__C.TRAIN.CHECKPOINTS_MAX_TO_KEEP = 5
 
 # The iteration interval for saving tensorflow summaries
 __C.TRAIN.SUMMARY_INTERVAL = 10
@@ -220,20 +221,24 @@ __C.EPS = 1e-14
 # Root directory of project
 __C.ROOT_DIR = osp.abspath(osp.join(osp.dirname(__file__), '..', '..'))
 
-# TODO load dirs from dirs.yaml
-__C.TFRECORD_DIR = data.TFRECORD_DIR
-__C.DATA_DIR = dirs.DATA_DIR
-__C.CHECKPOINT_DIR = dirs.CHECKPOINT_DIR
+# Read environment setup from path that is not version controlled
+env_cfg_file = osp.join(__C.ROOT_DIR, 'output', 'env.yml')
+assert osp.isfile(env_cfg_file), \
+    'copy `env_template/env.yml` to `output/env.yml` and adapt for your machine setup'
+with open(env_cfg_file, 'r') as f:
+    env_cfg = edict(yaml.load(f))
 
-# Where to store experiment data
-__C.LOG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'experiments', 'logs'))
-__C.CONFIG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'experiments', 'cfgs'))
+# See env_template/env.yml
+__C.TFRECORD_DIR = env_cfg.TFRECORD_DIR
+__C.DATA_DIR = env_cfg.DATA_DIR
+__C.CHECKPOINT_DIR = env_cfg.CHECKPOINT_DIR
+
+# Where to store experiment output data other than checkpoints
+__C.LOG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'outputs', 'logs'))
+__C.CONFIG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'outputs', 'cfgs'))
 
 # Name (or path to) the matlab executable
 __C.MATLAB = 'matlab'
-
-# Place outputs under an experiments directory
-__C.EXP_DIR = 'default'
 
 # Use GPU implementation of non-maximum suppression
 __C.USE_GPU_NMS = True
@@ -246,38 +251,6 @@ __C.ANCHOR_SCALES = [8]
 
 # Anchor ratios for RPN
 __C.ANCHOR_RATIOS = [0.5, 1, 2]
-
-
-def get_output_dir(imdb, weights_filename):
-    """Return the directory where experimental artifacts are placed.
-    If the directory does not exist, it is created.
-
-    A canonical path is built using the name from an imdb and a network
-    (if not None).
-    """
-    outdir = osp.abspath(osp.join(__C.ROOT_DIR, 'output', __C.EXP_DIR, imdb.name))
-    if weights_filename is None:
-        weights_filename = 'default'
-    outdir = osp.join(outdir, weights_filename)
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-    return outdir
-
-
-def get_output_tb_dir(imdb, weights_filename):
-    """Return the directory where tensorflow summaries are placed.
-    If the directory does not exist, it is created.
-
-    A canonical path is built using the name from an imdb and a network
-    (if not None).
-    """
-    outdir = osp.abspath(osp.join(__C.ROOT_DIR, 'tensorboard', __C.EXP_DIR, imdb.name))
-    if weights_filename is None:
-        weights_filename = 'default'
-    outdir = osp.join(outdir, weights_filename)
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
-    return outdir
 
 
 def _merge_a_into_b(a, b):
@@ -315,7 +288,6 @@ def _merge_a_into_b(a, b):
 
 def cfg_from_file(filename):
     """Load a config file and merge it into the default options."""
-    import yaml
     with open(filename, 'r') as f:
         yaml_cfg = edict(yaml.load(f))
 
@@ -323,7 +295,6 @@ def cfg_from_file(filename):
 
 
 def write_cfg_to_file(filename):
-    import yaml
     with open(filename, 'w') as f:
         yaml.dump(__C, f)
 
