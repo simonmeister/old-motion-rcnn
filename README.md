@@ -5,9 +5,8 @@ This repository contains the official TensorFlow implementation of
 
 ## Requirements
 
-- [Tensorflow (>= 1.0.0)](https://www.tensorflow.org/install/install_linux)
-- [Numpy](https://github.com/numpy/numpy/blob/master/INSTALL.rst.txt)
-- [Resnet50](http://download.tensorflow.org/models/resnet_v1_50_2016_08_28.tar.gz)
+- [tensorflow (>= 1.0.0)](https://www.tensorflow.org/install/install_linux)
+- [numpy](https://github.com/numpy/numpy/blob/master/INSTALL.rst.txt)
 
 ## Setup
 - create `./output` directory
