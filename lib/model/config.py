@@ -10,7 +10,7 @@ from easydict import EasyDict as edict
 
 __C = edict()
 # Consumers can get config by:
-#   from fast_rcnn_config import cfg
+#   from model.config import cfg
 cfg = __C
 
 #
@@ -18,8 +18,9 @@ cfg = __C
 #
 __C.TRAIN = edict()
 
-# Initial learning rate
-__C.TRAIN.LEARNING_RATE = 0.001
+# Training schedule
+__C.TRAIN.LEARNING_RATES = [0.001]
+__C.TRAIN.EPOCHS = [1]
 
 # Momentum
 __C.TRAIN.MOMENTUM = 0.9
@@ -27,14 +28,8 @@ __C.TRAIN.MOMENTUM = 0.9
 # Weight decay, for regularization
 __C.TRAIN.WEIGHT_DECAY = 0.0005
 
-# Factor for reducing the learning rate
-__C.TRAIN.GAMMA = 0.1
-
-# Step size for reducing the learning rate, currently only support one step
-__C.TRAIN.STEPSIZE = 30000
-
 # Iteration intervals for showing the loss during training, on command line interface
-__C.TRAIN.DISPLAY = 10
+__C.TRAIN.SUMMARY_INTERVAL = 10
 
 # Whether to double the learning rate for bias
 __C.TRAIN.DOUBLE_BIAS = True
@@ -48,28 +43,21 @@ __C.TRAIN.BIAS_DECAY = False
 # Whether to add ground truth boxes to the pool when sampling regions
 __C.TRAIN.USE_GT = False
 
-# Whether to use aspect-ratio grouping of training images, introduced merely for saving
-# GPU memory
-__C.TRAIN.ASPECT_GROUPING = False
+# The maximum number of checkpoints stored, older ones are deleted to save space
+__C.TRAIN.CHECKPOINTS_MAX_TO_KEEP = 10
 
-# The number of snapshots kept, older ones are deleted to save space
-__C.TRAIN.SNAPSHOT_KEPT = 3
-
-# The time interval for saving tensorflow summaries
-__C.TRAIN.SUMMARY_INTERVAL = 180
+# The iteration interval for saving tensorflow summaries
+__C.TRAIN.SUMMARY_INTERVAL = 10
 
 # Scale to use during training (can NOT list multiple scales)
 # The scale is the pixel size of an image's shortest side
 __C.TRAIN.SCALES = (600,)
 
 # Max pixel size of the longest side of a scaled input image
-__C.TRAIN.MAX_SIZE = 1000
+__C.TRAIN.MAX_SIZE = 1000 # TODO randomized, see paper
 
-# Images to use per minibatch
-__C.TRAIN.IMS_PER_BATCH = 1
-
-# Minibatch size (number of regions of interest [ROIs])
-__C.TRAIN.BATCH_SIZE = 128
+# Number of examples per batch
+__C.TRAIN.BATCH_SIZE = 1
 
 # Fraction of minibatch that is labeled foreground (i.e. class > 0)
 __C.TRAIN.FG_FRACTION = 0.25
@@ -98,17 +86,6 @@ __C.TRAIN.BBOX_REG = True
 # be used as a bounding-box regression training example
 __C.TRAIN.BBOX_THRESH = 0.5
 
-# Iterations between snapshots
-__C.TRAIN.SNAPSHOT_ITERS = 5000
-
-# solver.prototxt specifies the snapshot path prefix, this adds an optional
-# infix to yield the path: <prefix>[_<infix>]_iters_XYZ.caffemodel
-__C.TRAIN.SNAPSHOT_PREFIX = 'res101_faster_rcnn'
-# __C.TRAIN.SNAPSHOT_INFIX = ''
-
-# Use a prefetch thread in roi_data_layer.layer
-# So far I haven't found this useful; likely more engineering work is required
-# __C.TRAIN.USE_PREFETCH = False
 
 # Normalize the targets (subtract empirical mean, divide by empirical stddev)
 __C.TRAIN.BBOX_NORMALIZE_TARGETS = True
@@ -217,23 +194,25 @@ __C.RESNET = edict()
 __C.RESNET.BN_TRAIN = True
 
 #
+# Data storage and loading
+#
+__C.DATA = edict()
+__C.DATA.EXAMPLES_PER_TFRECORD = 500
+__C.TRAIN.MIN_EXAMPLES_AFTER_DEQUEUE = 500
+__C.TRAIN.EXAMPLES_PER_EPOCH = 2975
+
+#
 # MISC
 #
-
-# The mapping from image coordinates to feature map coordinates might cause
-# some boxes that are distinct in image space to become identical in feature
-# coordinates. If DEDUP_BOXES > 0, then DEDUP_BOXES is used as the scale factor
-# for identifying duplicate boxes.
-# 1/16 is correct for {Alex,Caffe}Net, VGG_CNN_M_1024, and VGG16
-__C.DEDUP_BOXES = 1. / 16.
 
 # Pixel mean values (RGB order) as a (1, 1, 3) array
 # We use the same pixel mean for all networks even though it's not exactly what
 # they were trained with
 __C.PIXEL_MEANS = np.array([[[122.7717, 115.9465, 102.9801]]])
 
-# For reproducibility
-__C.RNG_SEED = 3
+# For reproducibility and consistency after re-starting
+__C.RNG_INITIAL_SEED = 0
+__C.RNG_EPOCH_SEED_INCREMENT = 10000
 
 # A small number that's used many times
 __C.EPS = 1e-14
@@ -241,8 +220,14 @@ __C.EPS = 1e-14
 # Root directory of project
 __C.ROOT_DIR = osp.abspath(osp.join(osp.dirname(__file__), '..', '..'))
 
-# Data directory
-__C.DATA_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'data'))
+# TODO load dirs from dirs.yaml
+__C.TFRECORD_DIR = data.TFRECORD_DIR
+__C.DATA_DIR = dirs.DATA_DIR
+__C.CHECKPOINT_DIR = dirs.CHECKPOINT_DIR
+
+# Where to store experiment data
+__C.LOG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'experiments', 'logs'))
+__C.CONFIG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'experiments', 'cfgs'))
 
 # Name (or path to) the matlab executable
 __C.MATLAB = 'matlab'
@@ -335,6 +320,12 @@ def cfg_from_file(filename):
         yaml_cfg = edict(yaml.load(f))
 
     _merge_a_into_b(yaml_cfg, __C)
+
+
+def write_cfg_to_file(filename):
+    import yaml
+    with open(filename, 'w') as f:
+        yaml.dump(__C, f)
 
 
 def cfg_from_list(cfg_list):

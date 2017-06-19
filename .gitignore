@@ -4,3 +4,7 @@ output
 tensorboard
 lib/build
 .idea
+
+experiments/cfgs
+experiments/logs
+experiments/ref_cfgs

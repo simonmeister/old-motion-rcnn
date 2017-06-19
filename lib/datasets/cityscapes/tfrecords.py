@@ -10,6 +10,8 @@ import tensorflow as tf
 from tensorflow.python.lib.io.tf_record import TFRecordCompressionType
 
 import datasets.cityscapes.labels
+from model.config import cfg
+
 
 _DATA_URLS = [
     "https://www.cityscapes-dataset.com/file-handling/?packageID=1"
@@ -195,7 +197,7 @@ def _write_tfrecord(record_dir, dataset_dir, split_name, shuffle=False):
         shuffled = random.shuffle(zipped)
         image_paths, image_ids, instance_paths = zip(*shuffled)
 
-    num_shards = int(len(image_ids) / 15)
+    num_shards = int(len(image_ids) / cfg.DATA.EXAMPLES_PER_TFRECORD)
     num_per_shard = int(math.ceil(len(image_ids) / float(num_shards)))
 
     print('creating a total of {} examples in {} shards with at most {} examples each'

@@ -4,10 +4,9 @@ from .reader import read
 
 
 # TODO adapt for motion-rcnn after baseline works
-# TODO adapt calls to pass records_root
 # TODO adapt preprocess script
 
-def get_dataset(dataset_name, split_name, records_root,
+def get_example(dataset_name, split_name, records_root,
                 batch_size=1, is_training=False):
     file_pattern = dataset_name + '/' + split_name + '/' + '*.tfrecord'
     tfrecords = glob.glob(records_root + '/' + file_pattern)

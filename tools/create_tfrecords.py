@@ -2,7 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import tensorflow as tf
 
-from .cityscapes.tfrecords import create_records as create_cityscapes
+from datasets.cityscapes.tfrecords import create_records as create_cityscapes
 
 tf.app.flags.DEFINE_string(
     'dataset_name', 'cityscapes',

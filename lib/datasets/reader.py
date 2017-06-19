@@ -5,12 +5,12 @@ import tensorflow.contrib.slim as slim
 from tensorflow.python.lib.io.tf_record import TFRecordCompressionType
 
 
-# TODO extend for motion-rcnn after baseline works
-def read(tfrecords_filename):
-    if not isinstance(tfrecords_filename, list):
-        tfrecords_filename = [tfrecords_filename]
+def read(tfrecord_filenames, shuffle=False):
+    if not isinstance(tfrecord_filenames, list):
+        tfrecord_filenames = [tfrecord_filenames]
     filename_queue = tf.train.string_input_producer(
-        tfrecords_filename, num_epochs=100)  # TODO
+        tfrecord_filenames, num_epochs=None, shuffle=shuffle,
+        capacity=len(tfrecord_filenames))
 
     options = tf.python_io.TFRecordOptions(TFRecordCompressionType.ZLIB)
     reader = tf.TFRecordReader(options=options)
@@ -26,7 +26,6 @@ def read(tfrecords_filename):
             'label/masks': tf.FixedLenFeature([], tf.string),
             'label/boxes': tf.FixedLenFeature([], tf.string),
         })
-    # image = tf.image.decode_jpeg(features['image/encoded'], channels=3)
     img_id = features['image/id']
     ih = tf.cast(features['image/height'], tf.int32)
     iw = tf.cast(features['image/width'], tf.int32)

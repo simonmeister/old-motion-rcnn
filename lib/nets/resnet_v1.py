@@ -107,7 +107,7 @@ class resnetv1(Network):
         head = slim.dropout(refine, keep_prob=0.5, is_training=is_training)
         return head
 
-    def build_network(self, sess, is_training=True):
+    def build_network(self, is_training=True):
         # select initializers
         if cfg.TRAIN.TRUNCATED:
             initializer = tf.truncated_normal_initializer(mean=0.0, stddev=0.01)
@@ -147,26 +147,23 @@ class resnetv1(Network):
                 scope=self._resnet_scope)
             pyramid = self._build_pyramid(end_points, end_points_map)
 
-        self._act_summaries.append(net_conv4) # TODO
-        self._layers['head'] = net_conv4 # TODO
+        self._act_summaries.append(net_conv4)
         with tf.variable_scope(self._resnet_scope, self._resnet_scope):
             # build the anchors for the image
             self._build_anchors(pyramid)
 
             level_outputs = []
             for level in pyramid:
-                rpn = slim.conv2d(level, 512, [3, 3],
-                                  trainable=is_training,
-                                  weights_initializer=initializer,
-                                  scope="rpn_conv/3x3")
-                self._act_summaries.append(rpn) # TODO adapt?
+                rpn = slim.conv2d(level, 512, [3, 3], trainable=is_training,
+                                  weights_initializer=initializer, scope='rpn_conv/3x3')
+                self._act_summaries.append(rpn)
                 rpn_cls_score = slim.conv2d(rpn, self._num_anchors * 2, [1, 1], trainable=is_training,
                                             weights_initializer=initializer,
                                             padding='VALID', activation_fn=None, scope='rpn_cls_score')
-                # change it so that the score has 2 as its channel size
-                rpn_cls_score_reshape = self._reshape_layer(rpn_cls_score, 2, 'rpn_cls_score_reshape') # TODO understand why this is done!
-                rpn_cls_prob_reshape = self._softmax_layer(rpn_cls_score_reshape, "rpn_cls_prob_reshape")
-                rpn_cls_prob = self._reshape_layer(rpn_cls_prob_reshape, self._num_anchors * 2, "rpn_cls_prob")
+                # reshape so that the score has 2 as its channel size
+                rpn_cls_score_reshape = self._reshape_layer(rpn_cls_score, 2, 'rpn_cls_score_reshape')
+                rpn_cls_prob_reshape = self._softmax_layer(rpn_cls_score_reshape, 'rpn_cls_prob_reshape')
+                rpn_cls_prob = self._reshape_layer(rpn_cls_prob_reshape, self._num_anchors * 2, 'rpn_cls_prob')
                 rpn_bbox_pred = slim.conv2d(rpn, self._num_anchors * 4, [1, 1], trainable=is_training,
                                             weights_initializer=initializer,
                                             padding='VALID', activation_fn=None, scope='rpn_bbox_pred')
@@ -182,24 +179,24 @@ class resnetv1(Network):
                 [tf.concat(o, axis=0) for o in zip(*level_outputs)]
 
             if is_training:
-                rois, roi_scores = self._proposal_layer(rpn_cls_prob, rpn_bbox_pred, "rois")
-                rpn_labels = self._anchor_target_layer(rpn_cls_score, "anchor")
+                rois, roi_scores = self._proposal_layer(rpn_cls_prob, rpn_bbox_pred, 'rois')
+                rpn_labels = self._anchor_target_layer(rpn_cls_score, 'anchor')
                 # Try to have a determinestic order for the computing graph, for reproducibility
                 with tf.control_dependencies([rpn_labels]):
-                    rois, _ = self._proposal_target_layer(rois, roi_scores, "rpn_rois") # roi_scores
+                    rois, _ = self._proposal_target_layer(rois, roi_scores, 'rpn_rois')
                     mask_branch_rois = self._mask_target_layer(rois, 'mask_branch_rois')
             else:
                 if cfg.TEST.MODE == 'nms':
-                    rois, roi_scores = self._proposal_layer(rpn_cls_prob, rpn_bbox_pred, "rois")
+                    rois, roi_scores = self._proposal_layer(rpn_cls_prob, rpn_bbox_pred, 'rois')
                 elif cfg.TEST.MODE == 'top':
-                    rois, roi_scores = self._proposal_top_layer(rpn_cls_prob, rpn_bbox_pred, "rois")
+                    rois, roi_scores = self._proposal_top_layer(rpn_cls_prob, rpn_bbox_pred, 'rois')
                 else:
                     raise NotImplementedError
 
-                mask_branch_rois = self._mask_layer(rois, 'mask_branch_rois)
+                mask_branch_rois = self._mask_layer(rois, roi_scores, 'mask_branch_rois)
 
             # all 14x14 roi crops
-            roi_crops = self._crop_rois_from_pyramid(rois, pyramid, "roi_crops")
+            roi_crops = self._crop_rois_from_pyramid(rois, pyramid, 'roi_crops')
             fc_roi_head = self.fully_connected_roi_head(roi_crops)
 
             cls_score = slim.fully_connected(fc_roi_head, self._num_classes,
@@ -207,7 +204,7 @@ class resnetv1(Network):
                                              trainable=is_training,
                                              activation_fn=None,
                                              scope='cls_score')
-            cls_prob = self._softmax_layer(cls_score, "cls_prob")
+            cls_prob = self._softmax_layer(cls_score, 'cls_prob')
 
             bbox_pred = slim.fully_connected(fc_roi_head,
                                              self._num_classes * 4,
@@ -217,20 +214,20 @@ class resnetv1(Network):
 
             # TODO (later) use refined boxes for crops for mask branch at test time
             # need to use a subset of proposal_layer.py to create simple bbox_transform wrapper - see FastMaskRCNN
-            # mask head # TODO summaries??
+            # mask head
             mask_branch_roi_crops = self._crop_rois_from_pyramid(mask_branch_rois, pyramid,
-                                                                 name="roi_crops")
+                                                                 name='roi_crops')
             masks = self._mask_branch(mask_branch_roi_crops)
 
-        self._predictions["rpn_cls_score"] = rpn_cls_score
-        self._predictions["rpn_cls_score_reshape"] = rpn_cls_score_reshape
-        self._predictions["rpn_cls_prob"] = rpn_cls_prob
-        self._predictions["rpn_bbox_pred"] = rpn_bbox_pred
-        self._predictions["cls_score"] = cls_score
-        self._predictions["cls_prob"] = cls_prob
-        self._predictions["bbox_pred"] = bbox_pred
-        self._predictions["rois"] = rois
-        self._predictions["masks"] = masks
+        self._predictions['rpn_cls_score'] = rpn_cls_score
+        self._predictions['rpn_cls_score_reshape'] = rpn_cls_score_reshape
+        self._predictions['rpn_cls_prob'] = rpn_cls_prob
+        self._predictions['rpn_bbox_pred'] = rpn_bbox_pred
+        self._predictions['cls_score'] = cls_score
+        self._predictions['cls_prob'] = cls_prob
+        self._predictions['bbox_pred'] = bbox_pred
+        self._predictions['rois'] = rois
+        self._predictions['masks'] = masks
 
         self._score_summaries.update(self._predictions)
 
