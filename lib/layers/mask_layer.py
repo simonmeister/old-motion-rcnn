@@ -41,4 +41,4 @@ def mask_layer(rois, roi_scores, cls_scores, cfg_key):
 
     batch_inds = np.zeros((rois.shape[0], 1), dtype=np.float32)
     rois = np.hstack((batch_inds, rois))
-    return rois, roi_scores
+    return rois, roi_scores, cls_scores

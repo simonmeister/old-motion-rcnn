@@ -65,4 +65,4 @@ def mask_target_layer(rois, roi_scores, cls_scores, gt_boxes, cfg_key):
     rois = np.hstack((gt_assignment[keep_inds], rois[keep_inds, :]))
     roi_scores = roi_scores[keep_inds]
     cls_scores = cls_scores[keep_inds]
-    return rois, roi_scores
+    return rois, roi_scores, cls_scores

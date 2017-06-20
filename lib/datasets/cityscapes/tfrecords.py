@@ -125,8 +125,6 @@ def _create_tfexample(img_id, img, next_img, disparity_img, instance_img,
     height, width = img.shape[:2]
     masks, boxes = _get_instance_masks_and_boxes(instance_img)
     num_instances = boxes.shape[0]
-    if num_instances == 0:
-        return None
 
     example = tf.train.Example(features=tf.train.Features(feature={
         'image/id': _bytes_feature(img_id.encode('utf8')),
@@ -144,11 +142,11 @@ def _create_tfexample(img_id, img, next_img, disparity_img, instance_img,
         'label/camera/motion/yaw': _float_feature(yaw),
         'label/camera/motion/translation': _float_feature(translation),
     }))
-    return example
+    return example, num_instances
 
 
 # TODO extract multiple examples at different framerates per annotated file
-def _write_tfrecord(record_dir, dataset_dir, split_name, shuffle=False):
+def _write_tfrecord(record_dir, dataset_dir, split_name, is_training=False):
     """Loads image files and writes files to a TFRecord.
     Note: masks and bboxes will lose shape info after converting to string.
     """
@@ -193,7 +191,7 @@ def _write_tfrecord(record_dir, dataset_dir, split_name, shuffle=False):
     assert len(image_paths) == len(vehicle_paths) == len(camera_paths) == len(disparity_paths) \
            == len(next_paths) == len(instance_paths)
 
-    if shuffle:
+    if is_training:
         zipped = zip(image_paths, image_ids, instance_paths)
         random.seed(0)
         shuffled = random.shuffle(zipped)
@@ -246,11 +244,11 @@ def _write_tfrecord(record_dir, dataset_dir, split_name, shuffle=False):
                         with open(vehicle_paths[i]) as vehicle_file:
                             vehicle = json.load(vehicle_file)
 
-                        example = _create_tfexample(img_id, img, next_img, disparity_img,
-                                                    instance_img,
-                                                    camera, vehicle)
-                        if example is not None:
-                        # TODO for val set, we need all of the GT
+                        example, num_instances = _create_tfexample(
+                            img_id, img, next_img, disparity_img,
+                            instance_img, camera, vehicle)
+
+                        if num_instances > 0 or is_training == False:
                             created_count += 1
                             tfrecord_writer.write(example.SerializeToString())
                         else:
@@ -263,7 +261,7 @@ def _write_tfrecord(record_dir, dataset_dir, split_name, shuffle=False):
 
 def create_records(records_root, dataset_root, split_name='train'):
     assert split_name in ['train', 'val', 'test', 'mini'], split_name
-    shuffle = split_name in ['train']
+    is_training = split_name in ['train']
 
     # if not tf.gfile.Exists(dataset_root):
     #  tf.gfile.MakeDirs(dataset_root)
@@ -280,6 +278,6 @@ def create_records(records_root, dataset_root, split_name='train'):
     _write_tfrecord(record_dir,
                     os.path.join(dataset_root, 'cityscapes'),
                     split_name,
-                    shuffle=shuffle)
+                    is_training=is_training)
 
     print("\nFinished converting cityscapes '{}' split".format(split_name))
