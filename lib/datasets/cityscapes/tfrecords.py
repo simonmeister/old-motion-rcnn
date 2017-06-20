@@ -9,7 +9,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.lib.io.tf_record import TFRecordCompressionType
 
-import datasets.cityscapes.labels
+import datasets.cityscapes.labels as labels
 from model.config import cfg
 
 
@@ -86,7 +86,7 @@ def _get_instance_masks_and_boxes(instance_img, mask_height=28, mask_width=28):
         boxes = np.stack(boxes, axis=0)
         masks = np.stack(masks, axis=0)
     else:
-        boxes = np.zeros((0, 4))
+        boxes = np.zeros((0, 5))
         masks = np.zeros((0, mask_height, mask_width))
     return masks, boxes
 
@@ -125,6 +125,8 @@ def _create_tfexample(img_id, img, next_img, disparity_img, instance_img,
     height, width = img.shape[:2]
     masks, boxes = _get_instance_masks_and_boxes(instance_img)
     num_instances = boxes.shape[0]
+    if num_instances == 0:
+        return None
 
     example = tf.train.Example(features=tf.train.Features(feature={
         'image/id': _bytes_feature(img_id.encode('utf8')),
@@ -197,11 +199,13 @@ def _write_tfrecord(record_dir, dataset_dir, split_name, shuffle=False):
         shuffled = random.shuffle(zipped)
         image_paths, image_ids, instance_paths = zip(*shuffled)
 
-    num_shards = int(len(image_ids) / cfg.DATA.EXAMPLES_PER_TFRECORD)
-    num_per_shard = int(math.ceil(len(image_ids) / float(num_shards)))
+    num_per_shard = cfg.DATA.EXAMPLES_PER_TFRECORD
+    num_shards = int(math.ceil(len(image_ids) / float(num_per_shard)))
 
-    print('creating a total of {} examples in {} shards with at most {} examples each'
+    print('creating max. {} examples in {} shards with at most {} examples each'
           .format(len(image_ids), num_shards, num_per_shard))
+
+    created_count = 0
 
     for shard_id in range(num_shards):
         with tf.Graph().as_default(), tf.device('/cpu:0'):
@@ -245,8 +249,14 @@ def _write_tfrecord(record_dir, dataset_dir, split_name, shuffle=False):
                         example = _create_tfexample(img_id, img, next_img, disparity_img,
                                                     instance_img,
                                                     camera, vehicle)
-
-                        tfrecord_writer.write(example.SerializeToString())
+                        if example is not None:
+                        # TODO for val set, we need all of the GT
+                            created_count += 1
+                            tfrecord_writer.write(example.SerializeToString())
+                        else:
+                            print("Skipping example {}: 0 instances".format(i))
+    print("Created {} examples ({} skipped)."
+          .format(created_count, len(image_ids) - create_records))
     sys.stdout.write('\n')
     sys.stdout.flush()
 

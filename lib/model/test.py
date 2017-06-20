@@ -173,9 +173,9 @@ def test_net(sess, net, imdb, weights_filename, max_per_image=100, thresh=0.05):
         # skip j = 0, because it's the background class
         for j in range(1, imdb.num_classes):
             inds = np.where(scores[:, j] > thresh)[0]
-            cls_scores = scores[inds, j]
+            cls_logitss = scores[inds, j]
             cls_boxes = boxes[inds, j * 4:(j + 1) * 4]
-            cls_dets = np.hstack((cls_boxes, cls_scores[:, np.newaxis])) \
+            cls_dets = np.hstack((cls_boxes, cls_logitss[:, np.newaxis])) \
                 .astype(np.float32, copy=False)
             keep = nms(cls_dets, cfg.TEST.NMS)
             cls_dets = cls_dets[keep, :]

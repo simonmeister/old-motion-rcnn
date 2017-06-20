@@ -23,7 +23,7 @@ FLAGS = tf.app.flags.FLAGS
 
 def main(_):
     if FLAGS.data == 'cityscapes':
-        create_cityscapes(cfg.TFRECORD_DIR, FLAGS.DATA_DIR, FLAGS.split)
+        create_cityscapes(cfg.TFRECORD_DIR, cfg.DATA_DIR, FLAGS.split)
     else:
         raise ValueError('invalid dataset')
 

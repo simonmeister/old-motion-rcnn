@@ -15,14 +15,14 @@ from utils.bbox_transform import bbox_transform
 from utils.cython_bbox import bbox_overlaps
 
 
-def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, num_classes):
+def proposal_target_layer(rpn_rois, rpn_logits, gt_boxes, num_classes):
     """Assigns object detection proposals to ground-truth targets. Produces proposal
     classification labels and bounding-box regression targets after sampling with ground truth
     boxes.
 
     Args:
         rpn_rois: (N, 5) rois, [[0, x1, y1, x2, y2], ...]
-        rpn_scores: (N,) objectness scores
+        rpn_logits: (N,) objectness scores
         gt_boxes: (G, 5)
         num_classes: number of object classes
 
@@ -35,7 +35,7 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, num_classes):
         bbox_outside_weights: (T,), binary validity mask for bbox targets
     """
     all_rois = rpn_rois
-    all_scores = rpn_scores
+    all_scores = rpn_logits
 
     # Include ground-truth boxes in the set of candidate rois
     if cfg.TRAIN.USE_GT:

@@ -50,12 +50,10 @@ __C.TRAIN.CHECKPOINTS_MAX_TO_KEEP = 5
 # The iteration interval for saving tensorflow summaries
 __C.TRAIN.SUMMARY_INTERVAL = 10
 
-# Scale to use during training (can NOT list multiple scales)
+# Scale to use during training
 # The scale is the pixel size of an image's shortest side
-__C.TRAIN.SCALES = (600,)
-
-# Max pixel size of the longest side of a scaled input image
-__C.TRAIN.MAX_SIZE = 1000 # TODO randomized, see paper
+# Can be a single number or a tuple with min/max for random scale sampling
+__C.TRAIN.SCALE = [800, 1024]
 
 # Number of examples per batch
 __C.TRAIN.BATCH_SIZE = 1
@@ -131,18 +129,23 @@ __C.TRAIN.RPN_BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
 # and give negatives a weight of (1 - p)
 # Set to -1.0 to use uniform example weighting
 __C.TRAIN.RPN_POSITIVE_WEIGHT = -1.0
-# Whether to use all ground truth bounding boxes for training,
-# For COCO, setting USE_ALL_GT to False will exclude boxes that are flagged as ''iscrowd''
-__C.TRAIN.USE_ALL_GT = True
+
+# Minimum amount of examples in a shuffle queue, more means better shuffling
+__C.TRAIN.MIN_EXAMPLES_AFTER_DEQUEUE = 500
+
+# Number of examples in one epoch.
+# For cityscapes, this is the number of examples in the train split.
+# TODO this is not correct, as some examples were not created due to having no boxes?
+__C.TRAIN.EXAMPLES_PER_EPOCH = 2975
 
 #
 # Testing options
 #
 __C.TEST = edict()
 
-# Scale to use during testing (can NOT list multiple scales)
+# Scale to use during testing
 # The scale is the pixel size of an image's shortest side
-__C.TEST.SCALES = (600,)
+__C.TEST.SCALE = 1024
 
 # Max pixel size of the longest side of a scaled input image
 __C.TEST.MAX_SIZE = 1000
@@ -151,7 +154,7 @@ __C.TEST.MAX_SIZE = 1000
 # IoU >= this threshold)
 __C.TEST.NMS = 0.3
 
-# Experimental: treat the (K+1) units in the cls_score layer as linear
+# Experimental: treat the (K+1) units in the cls_logits layer as linear
 # predictors (trained, eg, with one-vs-rest SVMs).
 __C.TEST.SVM = False
 
@@ -195,14 +198,6 @@ __C.RESNET = edict()
 __C.RESNET.BN_TRAIN = True
 
 #
-# Data storage and loading
-#
-__C.DATA = edict()
-__C.DATA.EXAMPLES_PER_TFRECORD = 500
-__C.TRAIN.MIN_EXAMPLES_AFTER_DEQUEUE = 500
-__C.TRAIN.EXAMPLES_PER_EPOCH = 2975
-
-#
 # MISC
 #
 
@@ -229,9 +224,12 @@ with open(env_cfg_file, 'r') as f:
     env_cfg = edict(yaml.load(f))
 
 # See env_template/env.yml
-__C.TFRECORD_DIR = env_cfg.TFRECORD_DIR
-__C.DATA_DIR = env_cfg.DATA_DIR
-__C.CHECKPOINT_DIR = env_cfg.CHECKPOINT_DIR
+__C.TFRECORD_DIR = osp.abspath(env_cfg.TFRECORD_DIR)
+__C.DATA_DIR = osp.abspath(env_cfg.DATA_DIR)
+__C.CHECKPOINT_DIR = osp.abspath(env_cfg.CHECKPOINT_DIR)
+
+# Number of examples per tfrecord file
+__C.EXAMPLES_PER_TFRECORD = 500
 
 # Where to store experiment output data other than checkpoints
 __C.LOG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'outputs', 'logs'))
@@ -251,6 +249,10 @@ __C.ANCHOR_SCALES = [8]
 
 # Anchor ratios for RPN
 __C.ANCHOR_RATIOS = [0.5, 1, 2]
+
+
+def get_key(is_training):
+    return 'TRAIN' if is_training else 'TEST'
 
 
 def _merge_a_into_b(a, b):

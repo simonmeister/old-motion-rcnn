@@ -13,15 +13,15 @@ from utils.bbox_transform import bbox_transform_inv, clip_boxes
 from utils.nms_wrapper import nms
 
 
-def proposal_layer(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, anchors, num_anchors):
+def proposal_layer(rpn_scores, rpn_bbox_pred, im_info, cfg_key, anchors, num_anchors):
     """Given predicted objectness and bbox deltas, returns the bboxes and scores of top
     scoring roi proposals.
 
     A simplified variant compared to fast/er RCNN.
 
     Args:
-        rpn_cls_prob: binary scores of shape (B, H, W, 2 * num_anchors)
-        rpn_bbox_pred: of shape (B, H, W, num_anchors * 4)
+        rpn_scores: binary scores of shape (A, 2)
+        rpn_bbox_pred: of shape (A, 4)
         anchors: (A, 4), all anchors, A = B * H * W * num_anchors
         num_anchors: number of anchors per position
 
@@ -37,9 +37,7 @@ def proposal_layer(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, anchors, num_a
 
     im_info = im_info[0]
     # Get the scores and bounding boxes
-    scores = rpn_cls_prob[:, :, :, num_anchors:]
-    rpn_bbox_pred = rpn_bbox_pred.reshape((-1, 4))
-    scores = scores.reshape((-1, 1))
+    scores = rpn_scores[:, 0:1]
     proposals = bbox_transform_inv(anchors, rpn_bbox_pred)
     proposals = clip_boxes(proposals, im_info[:2])
 

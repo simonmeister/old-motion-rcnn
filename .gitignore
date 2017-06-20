@@ -4,3 +4,4 @@ lib/build
 .idea
 output
 data
+__pycache__

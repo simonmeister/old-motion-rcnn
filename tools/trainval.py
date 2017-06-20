@@ -9,51 +9,48 @@ import tensorflow as tf
 import _init_paths
 from datasets.cityscapes.labels import NUM_TRAIN_CLASSES
 from datasets.factory import get_dataset
-from model.train_val import Trainer
+from model.trainer import Trainer
 from model.config import cfg, cfg_from_file, cfg_from_list, write_cfg_to_file
 from nets.resnet_v1 import resnetv1
 
 
 def parse_args():
-  """
-  Parse input arguments
-  """
-  parser = argparse.ArgumentParser(description='Train a Fast R-CNN network')
-  parser.add_argument('--cfg', dest='cfg_file',
-                      help='optional config file',
-                      default=None, type=str)
-  parser.add_argument('--weight', dest='weight',
-                      help='initialize with pretrained model weights',
-                      type=str)
-  parser.add_argument('--data', dest='dataset',
-                      help='dataset to train on',
-                      default='cityscapes', type=str)
-  parser.add_argument('--split', dest='train_split',
-                      help='dataset split to train on',
-                      default='train', type=str)
-  parser.add_argument('--valsplit', dest='val_split',
-                      help='dataset split to train on',
-                      default='val', type=str)
-  parser.add_argument('--ex', dest='experiment_name',
-                      help='name of experiment',
-                      default=None, type=str)
-  parser.add_argument('--net', dest='net',
-                      help='backbone network',
-                      default='res50', type=str)
-  parser.add_argument('--set', dest='set_cfgs',
+    parser = argparse.ArgumentParser(description='Train a Motion R-CNN network')
+    parser.add_argument('--cfg', dest='cfg_file',
+                        help='optional config file',
+                        default=None, type=str)
+    parser.add_argument('--weight', dest='weight',
+                        help='initialize with pretrained model weights',
+                        type=str)
+    parser.add_argument('--data', dest='dataset',
+                        help='dataset to train on',
+                        default='cityscapes', type=str)
+    parser.add_argument('--split', dest='train_split',
+                        help='dataset split to train on',
+                        default='train', type=str)
+    parser.add_argument('--valsplit', dest='val_split',
+                        help='dataset split to train on',
+                        default='val', type=str)
+    parser.add_argument('--ex', dest='experiment_name',
+                        help='name of experiment',
+                        default='default', type=str)
+    #parser.add_argument('--net', dest='net',
+    #                  help='backbone network',
+    #                  default='res50', type=str)
+    parser.add_argument('--set', dest='set_cfgs',
                       help='set config keys', default=None,
                       nargs=argparse.REMAINDER)
 
-  if len(sys.argv) == 1:
-    parser.print_help()
-    sys.exit(1)
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
 
-  args = parser.parse_args()
-  return args
+    args = parser.parse_args()
+    return args
 
 
 class Dataset()
-  pass
+    pass
 
 
 if __name__ == '__main__':
@@ -91,11 +88,10 @@ if __name__ == '__main__':
         args.dataset, args.train_split, cfg.TFRECORD_DIR,
         is_training=True, batch_size=cfg.TRAIN.BATCH_SIZE)
 
-    dataset.get_test_batch = lambda: get_example(
+    dataset.get_val_batch = lambda: get_example(
         args.dataset, FLAGS.train_split, cfg.TFRECORDS_DIR,
         is_training=False, batch_size=cfg.TRAIN.BATCH_SIZE)
 
-    network = resnetv1(batch_size=cfg.TRAIN.BATCH_SIZE)
-    trainer = Trainer(network, dataset,
+    trainer = Trainer(resnetv1, dataset,
                       ckpt_dir=ckpt_dir, tbdir=log_dir)
     trainer.train_val(zip(cfg.TRAIN.EPOCHS, cfg.TRAIN.LEARNING_RATES))

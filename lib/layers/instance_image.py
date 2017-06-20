@@ -1,7 +1,7 @@
 # --------------------------------------------------------
 # Tensorflow Mask R-CNN
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Simon Meister
+# Written by Simon Meister, based on code by Charles Shang
 # --------------------------------------------------------
 from __future__ import absolute_import, division, print_function
 
@@ -38,3 +38,13 @@ def instange_image(rois, mask_preds, height, width):
         mask[y:(y + h), x:(x + w)] = m
 
     return mask
+
+
+def full_size_mask(box, mask, height, width):
+    full_size = np.zeros((height, width), dtype=np.float32)
+    h = box[3] - box[1] + 1
+    w = box[2] - box[0] + 1
+    x = box[0]
+    y = box[1]
+    m = cv2.resize(mask, (w, h), interpolation=cv2.INTER_LINEAR)
+    mask[y:(y + h), x:(x + w)] = 1

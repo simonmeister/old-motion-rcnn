@@ -16,33 +16,29 @@ from utils.cython_bbox import bbox_overlaps
 from utils.bbox_transform import bbox_transform
 
 
-def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, all_anchors, num_anchors):
+def anchor_target_layer(gt_boxes, im_info, all_anchors, num_anchors):
     """Returns targets for all rpn anchor predictions.
 
     Same as the anchor target layer in original Fast/er RCNN.
 
     Args:
-        rpn_cls_score: (B, H, W, num_anchors * 2)
         gt_boxes: (G, 5)
         all_anchors: (A, 4), A = B * H * W * num_anchors
         num_anchors: number of anchors per position
 
     Returns:
-        rpn_labels: (A,), -1 for ignore, 0 for negative and 1 for positive example
-        rpn_bbox_targets: (A, 4)
-        rpn_bbox_inside_weights: weights for positive bboxes (else 0)
-        rpn_bbox_outside_weights: weights for negative bboxes (else 0)
+        labels: (A,), -1 for ignore, 0 for negative and 1 for positive example
+        bbox_targets: (A, 4)
+        bbox_inside_weights: weights for positive bboxes (else 0)
+        bbox_outside_weights: weights for negative bboxes (else 0)
     """
     A = num_anchors
     total_anchors = all_anchors.shape[0]
     K = total_anchors / num_anchors
-    im_info = im_info[0]
+    # im_info = im_info[0]
 
     # allow boxes to sit over the edge by a small amount
-    _allowed_border = 0
-
-    # map of shape (..., H, W)
-    height, width = rpn_cls_score.shape[1:3]
+    # _allowed_border = 0
 
     # TODO we can optimize this layer as we don't discard outside anchors
     # only keep anchors inside the image
@@ -133,28 +129,7 @@ def anchor_target_layer(rpn_cls_score, gt_boxes, im_info, all_anchors, num_ancho
     bbox_inside_weights = _unmap(bbox_inside_weights, total_anchors, inds_inside, fill=0)
     bbox_outside_weights = _unmap(bbox_outside_weights, total_anchors, inds_inside, fill=0)
 
-    # labels
-    labels = labels.reshape((1, height, width, A)).transpose(0, 3, 1, 2)
-    labels = labels.reshape((1, 1, A * height, width))
-    rpn_labels = labels
-
-    # bbox_targets
-    bbox_targets = bbox_targets \
-        .reshape((1, height, width, A * 4))
-
-    rpn_bbox_targets = bbox_targets
-    # bbox_inside_weights
-    bbox_inside_weights = bbox_inside_weights \
-        .reshape((1, height, width, A * 4))
-
-    rpn_bbox_inside_weights = bbox_inside_weights
-
-    # bbox_outside_weights
-    bbox_outside_weights = bbox_outside_weights \
-        .reshape((1, height, width, A * 4))
-
-    rpn_bbox_outside_weights = bbox_outside_weights
-    return rpn_labels, rpn_bbox_targets, rpn_bbox_inside_weights, rpn_bbox_outside_weights
+    return labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
 
 
 def _unmap(data, count, inds, fill=0):

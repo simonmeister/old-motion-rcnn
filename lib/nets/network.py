@@ -20,18 +20,16 @@ from layers.generate_level_anchors import generate_level_anchors
 from layers.assign_boxes import assign_boxes
 from layers.mask_target_layer import mask_target_layer
 from layers.mask_layer import mask_layer
+from layers.roi_refine_layer import roi_refine_layer
 
 from model.config import cfg
 
 
 class Network(object):
-    def __init__(self, batch_size=1,
-                image, im_info, gt_boxes, gt_masks,
-                mode, num_classes,
-                anchor_scales=[8], anchor_ratios=[0.5, 1, 2]):
+    def __init__(self, input_batch, is_training, num_classes):
         self._pyramid_strides = [4, 8, 16, 32, 64]
         self._pyramid_indices = [2, 3, 4, 5, 6]
-        self._batch_size = batch_size
+        self._batch_size = cfg.TRAIN.BATCH_SIZEW
         self._predictions = {}
         self._losses = {}
         self._anchor_targets = {}
@@ -42,6 +40,67 @@ class Network(object):
         self._score_summaries = {}
         self._train_summaries = []
         self._event_summaries = {}
+
+        self._image = input_batch[0]
+        self._im_info = input_batch[1]
+        self._gt_boxes = input_batch[2]
+        self._gt_masks = input_batch[3]
+
+        self._num_classes = num_classes
+        self._mode = 'TRAIN' if is_training else 'TEST'
+        self._anchor_scales = cfg.ANCHOR_SCALES,
+        self._num_scales = len(anchor_scales)
+
+        self._anchor_ratios = cfg.ANCHOR_RATIOS
+        self._num_ratios = len(anchor_ratios)
+
+        self._num_anchors = self._num_scales * self._num_ratios
+
+        weights_regularizer = tf.contrib.layers.l2_regularizer(cfg.TRAIN.WEIGHT_DECAY)
+        if cfg.TRAIN.BIAS_DECAY:
+            biases_regularizer = weights_regularizer
+        else:
+            biases_regularizer = tf.no_regularizer
+
+        with arg_scope([slim.conv2d, slim.conv2d_in_plane, \
+                        slim.conv2d_transpose, slim.separable_conv2d, slim.fully_connected],
+                       weights_regularizer=weights_regularizer,
+                       biases_regularizer=biases_regularizer,
+                       biases_initializer=tf.constant_initializer(0.0)):
+            self.build_network(is_training)
+
+        for var in tf.trainable_variables():
+            self._train_summaries.append(var)
+
+        if mode == 'TEST':
+            stds = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_STDS), (self._num_classes))
+            means = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_MEANS), (self._num_classes))
+            self._predictions['bbox_pred'] *= stds
+            self._predictions['bbox_pred'] += means
+        else:
+            self._add_losses()
+
+        val_summaries = []
+        with tf.device('/cpu:0'):
+            # TODO rather use _add_image_summary on predictions - we know that the loader is OK
+            # this means we have to select the predicted class's bboxes from bbox_pred
+            # and convert masks to full image painting
+            # BEST TO SAVE BOTH!
+            val_summaries.append(self._add_image_summary(
+                self._image, self._gt_boxes, self._gt_masks))
+            for key, var in self._event_summaries.items():
+                val_summaries.append(tf.summary.scalar(key, var))
+            for key, var in self._score_summaries.items():
+                self._add_score_summary(key, var)
+            for var in self._act_summaries:
+                self._add_act_summary(var)
+            for var in self._train_summaries:
+                self._add_train_summary(var)
+
+        self._summary_op = tf.summary.merge_all()
+        if is_training: # TODO we have no val during training eval
+            self._summary_op_val = tf.summary.merge(val_summaries)
+
 
     ###########################################################################
     # Mask R-CNN layers
@@ -112,44 +171,57 @@ class Network(object):
                                   [tf.float32], name='generate_level_anchors')
         return anchors
 
-    def _mask_layer(self, rois, roi_scores, name):
+    def _mask_layer(self, rois, roi_scores, cls_scores, name):
         with tf.variable_scope(name) as scope:
-            mask_branch_rois = tf.py_func(
+            rois, roi_scores, cls_scores = tf.py_func(
                 mask_layer,
-                [rois, roi_scores, self._mode],
-                [tf.float32])
-        return mask_branch_rois
+                [rois, roi_scores, cls_scores, self._mode],
+                [tf.float32, tf.float32])
 
-    def _mask_target_layer(self, rois, name):
+        return rois, roi_scores, cls_scores
+
+    def _mask_target_layer(self, rois, roi_scores, name):
         with tf.variable_scope(name) as scope:
             gt_masks = self._gt_masks
-            mask_branch_rois = tf.py_func(
+            rois, roi_scores, cls_scores = tf.py_func(
                 mask_target_layer,
-                [rois, self._gt_boxes, self._mode],
-                [tf.float32])
+                [rois, roi_scores, cls_scores, self._gt_boxes, self._mode],
+                [tf.float32, tf.float32])
 
             gt_crops = self._crop_rois(gt_masks, mask_branch_rois,
                                        resized_height=28, resized_width=28,
                                        name='gt_crops')
+
             self._mask_targets['mask_targets'] = mask_targets
+
             self._score_summaries.update(self._mask_targets)
-        return mask_branch_rois
+
+        return rois, roi_scores, cls_scores
+
+    def _roi_refine_layer(self, rois, bbox_pred, name):
+        with tf.variable_scope(name) as scope:
+            rois, roi_scores, cls_scores = tf.py_func(
+                roi_refine_layer,
+                [bbox_pred],
+                [tf.float32, tf.float32])
+
+        return rois, roi_scores, cls_scores
 
     ###########################################################################
     # Faster R-CNN layers
     ###########################################################################
 
-    def _anchor_target_layer(self, rpn_cls_score, name):
+    def _anchor_target_layer(self, name):
         with tf.variable_scope(name) as scope:
             rpn_labels, rpn_bbox_targets, rpn_bbox_inside_weights, rpn_bbox_outside_weights = tf.py_func(
                 anchor_target_layer,
-                [rpn_cls_score, self._gt_boxes, self._im_info, self._anchors, self._num_anchors],
+                [self._gt_boxes, self._im_info, self._anchors, self._num_anchors],
                 [tf.float32, tf.float32, tf.float32, tf.float32])
 
-            rpn_labels.set_shape([1, 1, None, None])
-            rpn_bbox_targets.set_shape([1, None, None, self._num_anchors * 4])
-            rpn_bbox_inside_weights.set_shape([1, None, None, self._num_anchors * 4])
-            rpn_bbox_outside_weights.set_shape([1, None, None, self._num_anchors * 4])
+            rpn_labels.set_shape([None])
+            rpn_bbox_targets.set_shape([None, 4])
+            rpn_bbox_inside_weights.set_shape([None, 4])
+            rpn_bbox_outside_weights.set_shape([None, 4])
 
             rpn_labels = tf.to_int32(rpn_labels, name='to_int32')
             self._anchor_targets['rpn_labels'] = rpn_labels
@@ -161,27 +233,27 @@ class Network(object):
 
         return rpn_labels
 
-    def _proposal_top_layer(self, rpn_cls_prob, rpn_bbox_pred, name):
+    def _proposal_top_layer(self, rpn_scores, rpn_bbox_pred, name):
         with tf.variable_scope(name) as scope:
-            rois, rpn_scores = tf.py_func(proposal_top_layer,
-                                          [rpn_cls_prob, rpn_bbox_pred, self._im_info,
+            rois, rpn_logits = tf.py_func(proposal_top_layer,
+                                          [rpn_scores, rpn_bbox_pred, self._im_info,
                                            self._anchors, self._num_anchors],
                                           [tf.float32, tf.float32])
             rois.set_shape([cfg.TEST.RPN_TOP_N, 5])
-            rpn_scores.set_shape([cfg.TEST.RPN_TOP_N, 1])
+            rpn_logits.set_shape([cfg.TEST.RPN_TOP_N, 1])
 
-        return rois, rpn_scores
+        return rois, rpn_logits
 
-    def _proposal_layer(self, rpn_cls_prob, rpn_bbox_pred, name):
+    def _proposal_layer(self, rpn_scores, rpn_bbox_pred, name):
         with tf.variable_scope(name) as scope:
-            rois, rpn_scores = tf.py_func(proposal_layer,
-                                          [rpn_cls_prob, rpn_bbox_pred, self._im_info, self._mode,
+            rois, rpn_logits = tf.py_func(proposal_layer,
+                                          [rpn_scores, rpn_bbox_pred, self._im_info, self._mode,
                                            self._anchors, self._num_anchors],
                                           [tf.float32, tf.float32])
             rois.set_shape([None, 5])
-            rpn_scores.set_shape([None, 1])
+            rpn_logits.set_shape([None, 1])
 
-        return rois, rpn_scores
+        return rois, rpn_logits
 
     def _proposal_target_layer(self, rois, roi_scores, name):
         with tf.variable_scope(name) as scope:
@@ -214,26 +286,6 @@ class Network(object):
     def _dropout_layer(self, bottom, name, ratio=0.5):
         return tf.nn.dropout(bottom, ratio, name=name)
 
-    def _reshape_layer(self, input, num_dim, name): #TODO why not reshape to [-1 , 2]?
-        input_shape = tf.shape(input)
-        with tf.variable_scope(name) as scope:
-            # change the channel to the caffe format
-            to_nchw = tf.transpose(input, [0, 3, 1, 2])
-            # then force it to have channel 2
-            reshaped_nchw = tf.reshape(to_nchw,
-                                       tf.concat(axis=0, values=[[self._batch_size], [num_dim, -1], [input_shape[2]]]))
-            # then swap the channel back
-            reshaped = tf.transpose(reshaped_nchw, [0, 2, 3, 1])
-            return reshaped
-
-    def _softmax_layer(self, bottom, name):
-        if name == 'rpn_cls_prob_reshape':
-            input_shape = tf.shape(bottom)
-            bottom_reshaped = tf.reshape(bottom, [-1, input_shape[-1]])
-            reshaped_score = tf.nn.softmax(bottom_reshaped, name=name)
-            return tf.reshape(reshaped_score, input_shape)
-        return tf.nn.softmax(bottom, name=name)
-
     def _smooth_l1_loss(self, bbox_pred, bbox_targets, bbox_inside_weights, bbox_outside_weights,
                         sigma=1.0, dim=[1]):
         sigma_2 = sigma ** 2
@@ -253,14 +305,14 @@ class Network(object):
     def _add_losses(self, sigma_rpn=3.0):
         with tf.variable_scope('loss') as scope:
             # RPN, class loss
-            rpn_cls_score = tf.reshape(self._predictions['rpn_cls_score_reshape'], [-1, 2])
+            rpn_logits = tf.reshape(self._predictions['rpn_logits_reshape'], [-1, 2])
             rpn_label = tf.reshape(self._anchor_targets['rpn_labels'], [-1])
             rpn_select = tf.where(tf.not_equal(rpn_label, -1))
-            rpn_cls_score = tf.reshape(tf.gather(rpn_cls_score, rpn_select), [-1, 2])
+            rpn_logits = tf.reshape(tf.gather(rpn_logits, rpn_select), [-1, 2])
             rpn_label = tf.reshape(tf.gather(rpn_label, rpn_select), [-1])
             rpn_cross_entropy = tf.reduce_mean(
                 tf.nn.sparse_softmax_cross_entropy_with_logits(
-                    logits=rpn_cls_score, labels=rpn_label))
+                    logits=rpn_logits, labels=rpn_label))
 
             # RPN, bbox loss
             rpn_bbox_pred = self._predictions['rpn_bbox_pred']
@@ -273,12 +325,12 @@ class Network(object):
                                                 sigma=sigma_rpn, dim=[1, 2, 3])
 
             # RCNN, class loss
-            cls_score = self._predictions['cls_score']
+            cls_logits = self._predictions['cls_logits']
             label = tf.reshape(self._proposal_targets['labels'], [-1])
 
             cross_entropy = tf.reduce_mean(
                 tf.nn.sparse_softmax_cross_entropy_with_logits(
-                    logits=tf.reshape(cls_score, [-1, self._num_classes]), labels=label))
+                    logits=tf.reshape(cls_logits, [-1, self._num_classes]), labels=label))
 
             # RCNN, bbox loss
             bbox_pred = self._predictions['bbox_pred']
@@ -311,74 +363,6 @@ class Network(object):
 
     def build_network(self, is_training=True):
         raise NotImplementedError
-
-    def create_architecture(input_batch,
-                            mode, num_classes,
-                            anchor_scales=[8], anchor_ratios=[0.5, 1, 2]):
-
-        self._image = input_batch[0]
-        self._im_info = input_batch[1]
-        self._gt_boxes = input_batch[2]
-        self._gt_masks = input_batch[3]
-        # TODO handle examples with len(gt_boxes) == 0 by removing them during preprocesing/loading or in the tfrecords
-
-        self._num_classes = num_classes
-        self._mode = mode
-        self._anchor_scales = anchor_scales
-        self._num_scales = len(anchor_scales)
-
-        self._anchor_ratios = anchor_ratios
-        self._num_ratios = len(anchor_ratios)
-
-        self._num_anchors = self._num_scales * self._num_ratios
-
-        training = mode == 'TRAIN'
-        testing = mode == 'TEST'
-        
-        weights_regularizer = tf.contrib.layers.l2_regularizer(cfg.TRAIN.WEIGHT_DECAY)
-        if cfg.TRAIN.BIAS_DECAY:
-            biases_regularizer = weights_regularizer
-        else:
-            biases_regularizer = tf.no_regularizer
-
-        with arg_scope([slim.conv2d, slim.conv2d_in_plane, \
-                        slim.conv2d_transpose, slim.separable_conv2d, slim.fully_connected],
-                       weights_regularizer=weights_regularizer,
-                       biases_regularizer=biases_regularizer,
-                       biases_initializer=tf.constant_initializer(0.0)):
-            self.build_network(training)
-
-        for var in tf.trainable_variables():
-            self._train_summaries.append(var)
-
-        if mode == 'TEST':
-            stds = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_STDS), (self._num_classes))
-            means = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_MEANS), (self._num_classes))
-            self._predictions['bbox_pred'] *= stds
-            self._predictions['bbox_pred'] += means
-        else:
-            self._add_losses()
-
-        val_summaries = []
-        with tf.device('/cpu:0'):
-            # TODO rather use _add_image_summary on predictions - we know that the loader is OK
-            # this means we have to select the predicted class's bboxes from bbox_pred
-            # and convert masks to full image painting
-            # BEST TO SAVE BOTH!
-            val_summaries.append(self._add_image_summary(
-                self._image, self._gt_boxes, self._gt_masks))
-            for key, var in self._event_summaries.items():
-                val_summaries.append(tf.summary.scalar(key, var))
-            for key, var in self._score_summaries.items():
-                self._add_score_summary(key, var)
-            for var in self._act_summaries:
-                self._add_act_summary(var)
-            for var in self._train_summaries:
-                self._add_train_summary(var)
-
-        self._summary_op = tf.summary.merge_all()
-        if not testing:
-            self._summary_op_val = tf.summary.merge(val_summaries)
 
     ###########################################################################
     # Summaries

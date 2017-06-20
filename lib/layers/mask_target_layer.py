@@ -1,7 +1,7 @@
 # --------------------------------------------------------
 # Tensorflow Mask R-CNN
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Charles Shang and Simon Meister
+# Written by Simon Meister, based on code by Charles Shang
 # --------------------------------------------------------
 from __future__ import absolute_import, division, print_function
 
@@ -11,7 +11,7 @@ from model.config import cfg
 from utils.cython_bbox import bbox_overlaps
 
 
-def mask_target_layer(rois, gt_boxes, cfg_key):
+def mask_target_layer(rois, roi_scores, cls_scores, gt_boxes, cfg_key):
     """Returns rois for mask_branch, each with a gt box assigned for cropping mask targets.
 
     Note that one ground truth box can be assigned to multiple rois.
@@ -20,10 +20,13 @@ def mask_target_layer(rois, gt_boxes, cfg_key):
 
     Args:
         rois: (T, 5)
+        roi_scores: (T,)
+        cls_scores: (T, num_classes)
         gt_boxes: (G, 5)
 
     Returns:
         rois: [[batch_id, x1, y1, x2, y2], ...] of shape (M, 5)
+        roi_scores: (M,)
     """
     if type(cfg_key) == bytes:
         cfg_key = cfg_key.decode('utf-8')
@@ -60,4 +63,6 @@ def mask_target_layer(rois, gt_boxes, cfg_key):
     #    keep_neg_inds = np.random.choice(keep_neg_inds, size=num_masks, replace=False)
 
     rois = np.hstack((gt_assignment[keep_inds], rois[keep_inds, :]))
-    return rois
+    roi_scores = roi_scores[keep_inds]
+    cls_scores = cls_scores[keep_inds]
+    return rois, roi_scores

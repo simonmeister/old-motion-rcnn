@@ -13,16 +13,16 @@ from utils.bbox_transform import bbox_transform_inv, clip_boxes
 import numpy.random as npr
 
 
-def proposal_top_layer(rpn_cls_prob, rpn_bbox_pred, im_info, anchors, num_anchors):
+def proposal_top_layer(rpn_scores, rpn_bbox_pred, im_info, anchors, num_anchors):
     """Given predicted objectness and bbox deltas, returns the bboxes and scores of top
     scoring roi proposals.
 
     This variant selects the top N region proposals without using non-maximal suppression.
 
     Args:
-        rpn_cls_prob: binary scores of shape (B, H, W, 2 * num_anchors)
-        rpn_bbox_pred: of shape (B, H, W, num_anchors * 4)
-        anchors: (A, 4), all anchors, A = B * H * W * num_anchors
+        rpn_scores: binary scores of shape (A, 2)
+        rpn_bbox_pred: of shape (A, 4)
+        anchors: (A, 4), all anchors
         num_anchors: number of anchors per position
 
     Returns:
@@ -32,10 +32,7 @@ def proposal_top_layer(rpn_cls_prob, rpn_bbox_pred, im_info, anchors, num_anchor
     rpn_top_n = cfg.TEST.RPN_TOP_N
     im_info = im_info[0]
 
-    scores = rpn_cls_prob[:, :, :, num_anchors:]
-
-    rpn_bbox_pred = rpn_bbox_pred.reshape((-1, 4))
-    scores = scores.reshape((-1, 1))
+    scores = rpn_scores[:, 0:1]
 
     length = scores.shape[0]
     if length < rpn_top_n:

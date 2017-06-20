@@ -1,7 +1,7 @@
 # --------------------------------------------------------
 # Tensorflow Mask R-CNN
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Charles Shang and Simon Meister
+# Written by Charles Shang
 # --------------------------------------------------------
 from __future__ import absolute_import, division, print_function
 

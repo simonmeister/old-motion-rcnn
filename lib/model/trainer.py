@@ -1,7 +1,7 @@
 # --------------------------------------------------------
 # Motion R-CNN
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Simon Meister
+# Written by Simon Meister, based on code by Xinlei Chen
 # --------------------------------------------------------
 from __future__ import absolute_import, division, print_function
 
@@ -14,14 +14,16 @@ import tensorflow as tf
 
 from model.config import cfg
 from utils.timer import Timer
+from datasets.cityscapes.evaluate import evaluate_np_preds as evaluate_cs
+from layers.instance_image import full_size_mask
 
 
 class Trainer(object):
     """A wrapper class for the training process."""
 
-    def __init__(self, network, dataset,
+    def __init__(self, network_cls, dataset,
                  ckpt_dir, tbdir, pretrained_model=None):
-        self.net = network
+        self.network_cls = network_cls
         self.ckpt_dir = ckpt_dir
         self.tbdir = tbdir
         self.tbvaldir = tbdir + '_val'
@@ -51,11 +53,10 @@ class Trainer(object):
                 self._train_epoch(sess, learning_rate)
 
     def _train_epoch(self, sess, learning_rate):
-        net = self.network
-        net.create_architecture(self.dataset.get_train_batch(),
-                                'TRAIN', self.dataset.num_classes,
-                                anchor_scales=cfg.ANCHOR_SCALES,
-                                anchor_ratios=cfg.ANCHOR_RATIOS)
+        net = self.network_cls(self.dataset.get_train_batch(),
+                               is_training=True,
+                               num_classes=self.dataset.num_classes)
+
         train_op, lr_placeholder = self._get_train_op(net)
 
         saver = tf.train.Saver(max_to_keep=cfg.CHECKPOINTS_MAX_TO_KEEP,
@@ -173,7 +174,55 @@ class Trainer(object):
         saver.restore(sess, ckpt.model_checkpoint_path)
         print('Loaded.')
 
-        # TODO
+        batch = self.dataset.get_val_batch()
+        image = batch[0]
+        net = self.network_cls(batch,
+                               is_training=False,
+                               num_classes=self.dataset.num_classes)
+
+        iters = 0
+        avg_losses = np.zeros([len(net._losses)])
+        pred_np_arrays = []
+        try:
+            while not coord.should_stop():
+                loss_ops = [v for (k, v) in net._losses]
+                pred_ops = [
+                    net._predictions['masks'],
+                    net._predictions['mask_cls_scores'],
+                    net._predictions['mask_scores'],
+                    net._predictions['mask_rois']
+                ]
+
+                run_results = sess.run(loss_ops + pred_ops + [tf.shape(image)])
+                loss_results = run_results[:len(loss_ops)]
+                pred_results = run_results[len(loss_ops):]
+                image_shape_np = run_results[-1]
+                avg_losses += loss_results
+                pred_np_arrays.append(pred_results)
+                iters += 1
+        except tf.errors.OutOfRangeError:
+            pass
+
+        avg_losses /= iters # TODO add summaries
+        height, width = image_shape_np[1:3]
+
+        pred_lists = []
+        for masks, cls_scores, scores, rois in pred_np_arrays:
+            for i in masks.shape[0]:
+                train_id = np.argmax(cls_scores[i])
+                if train_id == 0:
+                    # Ignore background class
+                    continue
+                pred_dct = {}
+                pred_dct['imgId'] = "todo"
+                pred_dct['labelID'] = labels.trainId2label[train_id].id
+                pred_dct['conf'] = scores[i]
+                mask = full_size_mask(rois[i, 1:5], masks[i, :, :], height, width)
+                pred_dct['binaryMask'] = mask.astype(np.uint8)
+
+        cs_avgs = evaluate_cs(pred_lists) # TODO add summaries
+
+        # TODO add KITTI 2015 eval
 
         writer.close()
         print('Done evaluating.')
