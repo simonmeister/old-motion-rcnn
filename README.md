@@ -18,6 +18,7 @@ This repository contains the official TensorFlow implementation of
 - run `create_tfrecords.py` with each `--dataset`/`--split` combination you need
 
 ## Usage
+- run `python test/cityscapes.py` to visualize the cityscapes ground truth
 - run `python tools/trainval.py` for training
 - run `python tools/test.py` for testing
 
