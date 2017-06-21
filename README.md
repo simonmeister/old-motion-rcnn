@@ -19,7 +19,7 @@ This repository contains the official TensorFlow implementation of
 
 ## Usage
 - run `python tools/trainval.py` for training
-- run `python tools/trainval.py` for testing
+- run `python tools/test.py` for testing
 
 ## Acknowledgments
 This repository includes code from
