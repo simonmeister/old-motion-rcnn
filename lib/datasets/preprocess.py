@@ -1,7 +1,7 @@
 # --------------------------------------------------------
 # Motion R-CNN
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Charles Shang and Simon Meister
+# Written by Simon Meister, based on code by Charles Shang
 # --------------------------------------------------------
 import tensorflow as tf
 

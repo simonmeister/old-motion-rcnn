@@ -1,7 +1,7 @@
 # --------------------------------------------------------
-# Tensorflow Faster R-CNN
+# Motion R-CNN
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Xinlei Chen and Simon Meister
+# Written by Simon Meister, based on code by Xinlei Chen
 # --------------------------------------------------------
 from __future__ import absolute_import, division, print_function
 

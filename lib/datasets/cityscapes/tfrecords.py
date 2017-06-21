@@ -1,3 +1,9 @@
+# --------------------------------------------------------
+# Motion R-CNN
+# Licensed under The MIT License [see LICENSE for details]
+# Written by Simon Meister
+# --------------------------------------------------------
+
 import os
 import sys
 import math

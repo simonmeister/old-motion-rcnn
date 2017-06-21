@@ -1,3 +1,8 @@
+# --------------------------------------------------------
+# The Cityscapes Dataset
+# Written by the Cityscapes authors
+# --------------------------------------------------------
+
 from collections import namedtuple
 
 

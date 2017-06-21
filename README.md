@@ -27,6 +27,7 @@ This repository includes code from
 - [py-faster-rcnn](https://github.com/rbgirshick/py-faster-rcnn)
 - [tf-faster-rcnn](https://github.com/endernewton/tf-faster-rcnn)
 - [FastMaskRCNN](https://github.com/CharlesShang/FastMaskRCNN)
+- [cityscapesScripts](https://github.com/mcordts/cityscapesScripts)
 
 ## License
 See [LICENSE](https://github.com/simonmeister/motion-rcnn/blob/master/LICENSE) for details.

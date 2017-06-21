@@ -1,6 +1,8 @@
 #!/usr/bin/python
-
-# Written by the Cityscapes authors.
+# --------------------------------------------------------
+# The Cityscapes Dataset
+# Written by the Cityscapes authors
+# --------------------------------------------------------
 # Adapted by Simon Meister to work with in-memory predictions instead of reading
 # from file to enable fast evaluation during training.
 
