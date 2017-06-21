@@ -217,8 +217,8 @@ class resnetv1(Network):
             mask_roi_crops = self._crop_rois_from_pyramid(mask_rois, pyramid, name='roi_crops')
             masks = self._mask_head(mask_roi_crops)
 
-        self._predictions['rpn_logits'] = rpn_logits # should rename that to rpn_score
-        self._predictions['rpn_scores'] = rpn_scores #rpn_score_prob
+        self._predictions['rpn_logits'] = rpn_logits
+        self._predictions['rpn_scores'] = rpn_scores
         self._predictions['rpn_bbox_pred'] = rpn_bbox_pred
         self._predictions['cls_logits'] = cls_logits
         self._predictions['cls_scores'] = cls_scores
