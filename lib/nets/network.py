@@ -21,6 +21,7 @@ from layers.assign_boxes import assign_boxes
 from layers.mask_target_layer import mask_target_layer
 from layers.mask_layer import mask_layer
 from layers.roi_refine_layer import roi_refine_layer
+from layers.mask_util import color_mask
 
 from model.config import cfg
 
@@ -29,7 +30,7 @@ class Network(object):
     def __init__(self, input_batch, is_training, num_classes):
         self._pyramid_strides = [4, 8, 16, 32, 64]
         self._pyramid_indices = [2, 3, 4, 5, 6]
-        self._batch_size = cfg.TRAIN.BATCH_SIZEW
+        self._batch_size = cfg.TRAIN.BATCH_SIZE
         self._predictions = {}
         self._losses = {}
         self._anchor_targets = {}
@@ -72,7 +73,7 @@ class Network(object):
         for var in tf.trainable_variables():
             self._train_summaries.append(var)
 
-        if mode == 'TEST':
+        if mode == 'TEST' and cfg.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED:
             stds = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_STDS), (self._num_classes))
             means = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_MEANS), (self._num_classes))
             self._predictions['bbox_pred'] *= stds
@@ -80,16 +81,15 @@ class Network(object):
         else:
             self._add_losses()
 
-        val_summaries = []
+
         with tf.device('/cpu:0'):
-            # TODO rather use _add_image_summary on predictions - we know that the loader is OK
-            # this means we have to select the predicted class's bboxes from bbox_pred
-            # and convert masks to full image painting
-            # BEST TO SAVE BOTH!
-            val_summaries.append(self._add_image_summary(
-                self._image, self._gt_boxes, self._gt_masks))
+            self._image_summary = self._add_image_summary(
+                self._image,
+                self._predictions['mask_rois'],
+                self._predictions['masks'],
+                self._predictions['mask_classes'])
             for key, var in self._event_summaries.items():
-                val_summaries.append(tf.summary.scalar(key, var))
+                tf.summary.scalar(key, var)
             for key, var in self._score_summaries.items():
                 self._add_score_summary(key, var)
             for var in self._act_summaries:
@@ -98,9 +98,6 @@ class Network(object):
                 self._add_train_summary(var)
 
         self._summary_op = tf.summary.merge_all()
-        if is_training: # TODO we have no val during training eval
-            self._summary_op_val = tf.summary.merge(val_summaries)
-
 
     ###########################################################################
     # Mask R-CNN layers
@@ -176,7 +173,7 @@ class Network(object):
             rois, roi_scores, cls_scores = tf.py_func(
                 mask_layer,
                 [rois, roi_scores, cls_scores, self._mode],
-                [tf.float32, tf.float32])
+                [tf.float32, tf.float32, tf.float32])
 
         return rois, roi_scores, cls_scores
 
@@ -186,7 +183,7 @@ class Network(object):
             rois, roi_scores, cls_scores = tf.py_func(
                 mask_target_layer,
                 [rois, roi_scores, cls_scores, self._gt_boxes, self._mode],
-                [tf.float32, tf.float32])
+                [tf.float32, tf.float32, tf.float32])
 
             gt_crops = self._crop_rois(gt_masks, mask_branch_rois,
                                        resized_height=28, resized_width=28,
@@ -203,7 +200,7 @@ class Network(object):
             rois, roi_scores, cls_scores = tf.py_func(
                 roi_refine_layer,
                 [bbox_pred],
-                [tf.float32, tf.float32])
+                [tf.float32, tf.float32, tf.float32])
 
         return rois, roi_scores, cls_scores
 
@@ -368,24 +365,32 @@ class Network(object):
     # Summaries
     ###########################################################################
 
-    def _add_image_summary(self, image, boxes, masks):
+    def color_mask(rois, classes, masks, height, width):
+        color_mask = tf.py_func(
+            color_mask,
+            [rois, classes, masks, height, width],
+            [tf.float32])
+        return color_mask
+
+    def _add_image_summary(self, image, rois, classes, masks):
         # add back mean
-        image += cfg.PIXEL_MEANS # TODO
+        image += cfg.PIXEL_MEANS / 255.0
         # dims for normalization
         width = tf.to_float(tf.shape(image)[2])
         height = tf.to_float(tf.shape(image)[1])
-        # from [x1, y1, x2, y2, cls] to normalized [y1, x1, y1, x1]
-        cols = tf.unstack(boxes, axis=1)
-        boxes = tf.stack([cols[1] / height,
-                          cols[0] / width,
-                          cols[3] / height,
-                          cols[2] / width], axis=1)
+        # from [batch, x1, y1, x2, y2] to normalized [y1, x1, y1, x1]
+        cols = tf.unstack(rois, axis=1)
+        boxes = tf.stack([cols[2] / height,
+                          cols[1] / width,
+                          cols[4] / height,
+                          cols[3] / width], axis=1)
         # add batch dimension (assume batch_size==1)
         assert image.get_shape()[0] == 1
         boxes = tf.expand_dims(boxes, dim=0)
         image = tf.image.draw_bounding_boxes(image, boxes)
-        # TODO overlay mask paintings
-        return tf.summary.image('ground_truth', image)
+        color_mask = self._color_mask(rois, classes, masks, height, width)
+        image = image + 0.4 * color_mask
+        return tf.summary.image('prediction', image)
 
     def _add_act_summary(self, tensor):
         tf.summary.histogram('ACT/' + tensor.op.name + '/activations', tensor)

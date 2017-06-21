@@ -212,6 +212,7 @@ class resnetv1(Network):
             # Subsampled and re-ordered refined rois, scores and cls_scores
             mask_rois, mask_scores, mask_cls_scores = mask_layer(refined_rois, roi_scores, cls_scores,
                                                                  'mask_rois')
+            mask_classes = tf.argmax(mask_cls_scores, axis=1)
 
             mask_roi_crops = self._crop_rois_from_pyramid(mask_rois, pyramid, name='roi_crops')
             masks = self._mask_head(mask_roi_crops)
@@ -227,6 +228,7 @@ class resnetv1(Network):
         self._predictions['mask_rois'] = mask_rois
         self._predictions['mask_scores'] = mask_scores
         self._predictions['mask_cls_scores'] = mask_cls_scores
+        self._predictions['mask_classes'] = mask_classes
 
         self._score_summaries.update(self._predictions)
 

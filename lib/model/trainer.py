@@ -15,7 +15,7 @@ import tensorflow as tf
 from model.config import cfg
 from utils.timer import Timer
 from datasets.cityscapes.evaluate import evaluate_np_preds as evaluate_cs
-from layers.instance_image import full_size_mask
+from layers.mask_util import binary_mask
 
 
 class Trainer(object):
@@ -39,7 +39,7 @@ class Trainer(object):
         for epochs, learning_rate in schedule:
             for epoch in range(epochs):
                 self.train_epoch(epoch, learning_rate)
-                self.evaluate()
+                self.evaluate(epoch)
 
     def train_epoch(self, learning_rate):
         seed = cfg.RNG_INITIAL_SEED + epoch * cfg.RNG_EPOCH_SEED_INCREMENT
@@ -156,14 +156,15 @@ class Trainer(object):
 
         return train_op, lr_placeholder
 
-    def evaluate(self):
+    def evaluate(self, epoch=0):
         with tf.Graph().as_default():
             tfconfig = tf.ConfigProto(allow_soft_placement=True)
             tfconfig.gpu_options.allow_growth = True
             with tf.Session(config=tfconfig) as sess:
-                self._evalute(sess)
+                self._evaluate_cs(sess, epoch)
+        # TODO add KITTI 2015 eval
 
-    def _evaluate(self, sess):
+    def _evaluate_cs(self, sess, epoch):
         ckpt = tf.train.get_checkpoint_state(self.ckpt_dir)
         assert ckpt is not None
 
@@ -203,9 +204,9 @@ class Trainer(object):
         except tf.errors.OutOfRangeError:
             pass
 
-        avg_losses /= iters # TODO add summaries
-        height, width = image_shape_np[1:3]
+        avg_losses /= iters
 
+        height, width = image_shape_np[1:3]
         pred_lists = []
         for masks, cls_scores, scores, rois in pred_np_arrays:
             for i in masks.shape[0]:
@@ -217,12 +218,28 @@ class Trainer(object):
                 pred_dct['imgId'] = "todo"
                 pred_dct['labelID'] = labels.trainId2label[train_id].id
                 pred_dct['conf'] = scores[i]
-                mask = full_size_mask(rois[i, 1:5], masks[i, :, :], height, width)
+                mask = binary_mask(rois[i, :], masks[i, :, :], height, width)
                 pred_dct['binaryMask'] = mask.astype(np.uint8)
+        cs_avgs = evaluate_cs(pred_lists)
 
-        cs_avgs = evaluate_cs(pred_lists) # TODO add summaries
+        _summarize_value(cs_avgs['allAp'], 'Ap', 'allAp', 'cs_val')
+        _summarize_value(cs_avgs['allAp50%'], 'Ap50%', 'allAp', 'cs_val')
+        for k, v in cs_avgs["classes"]:
+            _summarize_value(v['allAp'], k, 'classAp', 'cs_val')
+            _summarize_value(v['allAp50%'], k, 'classAp50%', 'cs_val')
+        for i, k in enumerate(net._losses.keys()):
+            _summarize_value(avg_losses[i], k, 'losses', 'cs_val')
 
-        # TODO add KITTI 2015 eval
+        summary_op = tf.summary.merge_all(keys=['cs_val'])
+        summary = sess.run(summary_op)
+        writer.add_summary(summary, epoch)
 
         writer.close()
         print('Done evaluating.')
+
+
+def _summarize_value(value, name, prefix=None, key=tf.GraphKeys.SUMMARIES):
+    prefix = '' if not prefix else prefix + '/'
+    p = tf.Variable(value, dtype=tf.float32, name=name, trainable=False)
+    tf.summary.scalar(prefix + name, p, collections=[key])
+    return p
