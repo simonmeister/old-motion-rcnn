@@ -204,8 +204,10 @@ class resnetv1(Network):
                                              trainable=is_training,
                                              activation_fn=None, scope='bbox_pred')
 
-            # These are the rois from the final precise bbox predictions
-            refined_rois = self._roi_refine_layer(rois, bbox_pred, 'refined_rois')
+            if is_training or cfg.TEST.BBOX_REG:
+                refined_rois = self._roi_refine_layer(rois, bbox_pred, 'refined_rois')
+            else:
+                refined_rois = rois
 
             mask_layer = self._mask_target_layer if is_training else self._mask_layer
 

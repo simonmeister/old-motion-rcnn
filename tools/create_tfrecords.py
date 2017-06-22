@@ -14,10 +14,6 @@ tf.app.flags.DEFINE_string(
     'split', 'mini',
     'Dataset split to create. One of (train,val,test,mini)')
 
-tf.app.flags.DEFINE_bool(
-    'shuffle', True,
-    'Whether to shuffle files before storing them in shards. Should be True for training splits.')
-
 FLAGS = tf.app.flags.FLAGS
 
 
