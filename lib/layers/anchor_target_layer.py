@@ -40,14 +40,13 @@ def anchor_target_layer(gt_boxes, im_info, all_anchors, num_anchors):
     # allow boxes to sit over the edge by a small amount
     # _allowed_border = 0
 
-    # TODO we can optimize this layer as we don't discard outside anchors
-    # only keep anchors inside the image
-    #inds_inside = np.where(
-    #    (all_anchors[:, 0] >= -_allowed_border) &
-    #    (all_anchors[:, 1] >= -_allowed_border) &
-    #    (all_anchors[:, 2] < im_info[1] + _allowed_border) &  # width
-    #    (all_anchors[:, 3] < im_info[0] + _allowed_border)  # height
-    #)[0]
+    # TODO add again if it's a problem.
+    # inds_inside = np.where(
+    #     (all_anchors[:, 0] >= -_allowed_border) &
+    #     (all_anchors[:, 1] >= -_allowed_border) &
+    #     (all_anchors[:, 2] < im_info[1] + _allowed_border) &  # width
+    #     (all_anchors[:, 3] < im_info[0] + _allowed_border)  # height
+    # )[0]
     inds_inside = np.ones([A], dtype=bool)
 
     # keep only inside anchors

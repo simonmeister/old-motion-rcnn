@@ -1,7 +1,7 @@
 # --------------------------------------------------------
 # Motion R-CNN
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Simon Meister, based on code by Charles Shang
+# Written by Simon Meister
 # --------------------------------------------------------
 from __future__ import absolute_import, division, print_function
 
@@ -12,7 +12,7 @@ from utils.cython_bbox import bbox_overlaps
 
 
 def mask_target_layer(rois, roi_scores, cls_scores, gt_boxes, cfg_key):
-    """Returns rois for mask_branch, each with a gt box assigned for cropping mask targets.
+    """Returns rois for mask_branch, each with a gt instance assigned for cropping mask targets.
 
     Note that one ground truth box can be assigned to multiple rois.
     The final targets will still differ in how the ground truth masks
@@ -27,6 +27,7 @@ def mask_target_layer(rois, roi_scores, cls_scores, gt_boxes, cfg_key):
     Returns:
         rois: [[batch_id, x1, y1, x2, y2], ...] of shape (M, 5)
         roi_scores: (M,)
+        cls_scores: (M, num_classes)
     """
     if type(cfg_key) == bytes:
         cfg_key = cfg_key.decode('utf-8')
@@ -37,8 +38,8 @@ def mask_target_layer(rois, roi_scores, cls_scores, gt_boxes, cfg_key):
     overlaps = bbox_overlaps(
         np.ascontiguousarray(rois[:, 1:5], dtype=np.float),
         np.ascontiguousarray(gt_boxes[:, :4], dtype=np.float))
-    gt_assignment = overlaps.argmax(axis=1)  # gt mask batch index per-roi
-    max_overlaps = overlaps[np.arange(len(gt_assignment)), gt_assignment] # per-roi
+    gt_assignments = overlaps.argmax(axis=1)  # gt mask batch index per-roi
+    max_overlaps = overlaps[:, gt_assignment] # per-roi
 
     keep_inds = np.where(max_overlaps >= mask_thresh)[0]
     num_pos = int(min(keep_inds.size, masks_top_n))
@@ -62,7 +63,7 @@ def mask_target_layer(rois, roi_scores, cls_scores, gt_boxes, cfg_key):
     #if keep_neg_inds.size > 0 and num_masks < keep_neg_inds.size:
     #    keep_neg_inds = np.random.choice(keep_neg_inds, size=num_masks, replace=False)
 
-    rois = np.hstack((gt_assignment[keep_inds], rois[keep_inds, :]))
+    rois = np.hstack((gt_assignments[keep_inds], rois[keep_inds, :]))
     roi_scores = roi_scores[keep_inds]
     cls_scores = cls_scores[keep_inds]
     return rois, roi_scores, cls_scores

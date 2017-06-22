@@ -64,7 +64,7 @@ __C.TRAIN.FG_FRACTION = 0.25
 # Overlap threshold for a ROI to be considered foreground (if >= FG_THRESH)
 __C.TRAIN.FG_THRESH = 0.5
 
-# Overlap threshold for a ROI to be considered positive (if >= MASK_THRESH)
+# Overlap threshold for a ROI to be processed by the mask head (if >= MASK_THRESH)
 __C.TRAIN.MASK_THRESH = 0.5
 
 # Maximum number of ground truth masks to sample per image during training
@@ -135,7 +135,7 @@ __C.TRAIN.MIN_EXAMPLES_AFTER_DEQUEUE = 500
 
 # Number of examples in one epoch.
 # For cityscapes, this is the number of examples in the train split.
-# TODO this is not correct, as some examples were not created due to having no boxes?
+# TODO this is not correct, as some examples were not created due to having no boxes
 __C.TRAIN.EXAMPLES_PER_EPOCH = 2975
 
 #

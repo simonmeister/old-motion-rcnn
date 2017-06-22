@@ -113,8 +113,9 @@ class Network(object):
             x2 = tf.slice(rois, [0, 3], [-1, 1], name='x2') / width
             y2 = tf.slice(rois, [0, 4], [-1, 1], name='y2') / height
             # Won't be backpropagated to boxes anyway, but to save time # TODO verify
-            boxes = tf.stop_gradient(tf.concat([y1, x1, y2, x2], axis=1))
-            crops = tf.image.crop_and_resize(image, rois,
+            # boxes = tf.stop_gradient(tf.concat([y1, x1, y2, x2], axis=1))
+            boxes = tf.concat([y1, x1, y2, x2], axis=1)
+            crops = tf.image.crop_and_resize(image, boxes,
                                              tf.to_int32(batch_ids),
                                              [resized_height, resized_width],
                                              name='crops')
@@ -189,7 +190,6 @@ class Network(object):
 
     def _mask_target_layer(self, rois, roi_scores, name):
         with tf.variable_scope(name) as scope:
-            gt_masks = self._gt_masks
             rois, roi_scores, cls_scores = tf.py_func(
                 mask_target_layer,
                 [rois, roi_scores, cls_scores, self._gt_boxes, self._mode],
@@ -199,11 +199,11 @@ class Network(object):
             roi_scores.set_shape([None])
             cls_scores.set_shape([None])
 
-            gt_crops = self._crop_rois(gt_masks, mask_branch_rois,
+            gt_crops = self._crop_rois(self._gt_masks, rois,
                                        resized_height=28, resized_width=28,
                                        name='gt_crops')
 
-            self._mask_targets['mask_targets'] = mask_targets
+            self._mask_targets['mask_targets'] = gt_crops
 
             self._score_summaries.update(self._mask_targets)
 

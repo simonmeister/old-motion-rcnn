@@ -1,7 +1,7 @@
 import glob
 
 from datasets.reader import read
-from datasets.preprocessing import preprocess_example
+from datasets.preprocess import preprocess_example
 
 # TODO adapt for motion-rcnn after baseline works
 

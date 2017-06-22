@@ -41,6 +41,13 @@ def proposal_layer(rpn_scores, rpn_bbox_pred, im_info, cfg_key, anchors, num_anc
     proposals = bbox_transform_inv(anchors, rpn_bbox_pred)
     proposals = clip_boxes(proposals, im_info[:2])
 
+    # TODO add this again?
+    # 3. remove predicted boxes with either height or width < threshold
+    # (NOTE: convert min_size to input image scale stored in im_info[2])
+    # keep = _filter_boxes(proposals, min_size * im_info[2])
+    # proposals = proposals[keep, :]
+    # scores = scores[keep]
+
     # Pick the top region proposals
     order = scores.ravel().argsort()[::-1]
     if pre_nms_topN > 0:
@@ -62,3 +69,11 @@ def proposal_layer(rpn_scores, rpn_bbox_pred, im_info, cfg_key, anchors, num_anc
     blob = np.hstack((batch_inds, proposals.astype(np.float32, copy=False)))
 
     return blob, scores
+
+
+def _filter_boxes(boxes, min_size):
+    """Remove all boxes with any side smaller than min_size."""
+    ws = boxes[:, 2] - boxes[:, 0] + 1
+    hs = boxes[:, 3] - boxes[:, 1] + 1
+    keep = np.where((ws >= min_size) & (hs >= min_size))[0]
+    return keep

@@ -13,7 +13,7 @@ from utils.bbox_transform import bbox_transform_inv, clip_boxes
 
 
 def roi_refine_layer(rpn_rois, bbox_pred):
-    """Returns final rois given rpn rois and predicted bbox deltas.
+    """Returns final rois given (subsampled) rpn rois and predicted bbox deltas.
 
     Args:
         bbox_pred: binary scores of shape (N, 4)

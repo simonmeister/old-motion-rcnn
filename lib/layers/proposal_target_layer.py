@@ -2,7 +2,7 @@
 # Faster R-CNN
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Ross Girshick, Sean Bell and Xinlei Chen
+# Written by Ross Girshick, Sean Bell, Xinlei Chen and Simon Meister
 # --------------------------------------------------------
 from __future__ import absolute_import
 from __future__ import division
@@ -27,7 +27,7 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, num_classes):
         num_classes: number of object classes
 
     Returns:
-        rois: (T, 5) rois, with T < N
+        rois: (T, 5) sampled rois, with T < N
         roi_scores: (T,) objectness scores
         labels: (T,) ground truth object class labels, 0 for negative example
         bbox_targets: (T, 4) bbox regression targets, rows zero for t with labels[t] == 0
@@ -44,7 +44,7 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, num_classes):
             (all_rois, np.hstack((zeros, gt_boxes[:, :-1])))
         )
         # not sure if it a wise appending, but anyway i am not using it
-        all_scores = np.vstack((all_scores, zeros))
+        all_scores = np.vstack((all_scores, zeros)) # TODO shouldn't it be ones?
 
     num_images = 1
     rois_per_image = cfg.TRAIN.BATCH_SIZE / num_images
@@ -56,8 +56,6 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, num_classes):
         all_rois, all_scores, gt_boxes, fg_rois_per_image,
         rois_per_image, num_classes)
 
-    bbox_targets = bbox_targets.reshape(-1, num_classes * 4)
-    bbox_inside_weights = bbox_inside_weights.reshape(-1, num_classes * 4)
     bbox_outside_weights = np.array(bbox_inside_weights > 0).astype(np.float32)
 
     return rois, roi_scores, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights
@@ -79,7 +77,7 @@ def _get_bbox_regression_labels(bbox_target_data, num_classes):
     bbox_targets = np.zeros((clss.size, 4 * num_classes), dtype=np.float32)
     bbox_inside_weights = np.zeros(bbox_targets.shape, dtype=np.float32)
     inds = np.where(clss > 0)[0]
-    for ind in inds: # TODO isn't this incredibly inefficient?
+    for ind in inds:
         cls = clss[ind]
         start = int(4 * cls)
         end = start + 4

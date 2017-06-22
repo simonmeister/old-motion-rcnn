@@ -24,6 +24,8 @@ def mask_layer(rois, roi_scores, cls_scores, cfg_key):
 
     Returns:
         rois: [[batch_id, x1, y1, x2, y2], ...] of shape (M, 5)
+        roi_scores: (M,)
+        cls_scores: (M, num_classes)
     """
     if type(cfg_key) == bytes:
         cfg_key = cfg_key.decode('utf-8')
@@ -33,11 +35,8 @@ def mask_layer(rois, roi_scores, cls_scores, cfg_key):
     if masks_top_n > 0:
         order = order[:masks_top_n]
     rois = rois[order, :]
-    rois = rois[keep, :]
     roi_scores = roi_scores[order]
-    roi_scores = roi_scores[keep]
     cls_scores = cls_scores[order, :]
-    cls_scores = cls_scores[keep, :]
 
     batch_inds = np.zeros((rois.shape[0], 1), dtype=np.float32)
     rois = np.hstack((batch_inds, rois))

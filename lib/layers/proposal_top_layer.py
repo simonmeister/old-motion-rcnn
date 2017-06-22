@@ -1,7 +1,7 @@
 # --------------------------------------------------------
 # Faster R-CNN
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Xinlei Chen
+# Written by Xinlei Chen and Simon Meister
 # --------------------------------------------------------
 from __future__ import absolute_import
 from __future__ import division
