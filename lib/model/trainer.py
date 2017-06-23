@@ -51,8 +51,8 @@ class Trainer(object):
                 self._train_epoch(sess, learning_rate)
 
     def _train_epoch(self, sess, learning_rate):
-        with tf.device('/cpu:0'):
-            batch = self.dataset.get_train_batch()
+        #with tf.device('/cpu:0'):
+        batch = self.dataset.get_train_batch()
         net = self.network_cls(batch,
                                is_training=True,
                                num_classes=self.dataset.num_classes)
@@ -87,11 +87,11 @@ class Trainer(object):
 
         writer = tf.summary.FileWriter(self.tbdir, sess.graph)
         coord = tf.train.Coordinator()
-        threads = []
-        print (tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS))
-        for qr in tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS):
-            threads.extend(qr.create_threads(sess, coord=coord, daemon=True,
-                                             start=True))
+        #threads = []
+        #print (tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS))
+        #for qr in tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS):
+        #    threads.extend(qr.create_threads(sess, coord=coord, daemon=True,
+        #                                     start=True))
 
         threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
@@ -103,9 +103,6 @@ class Trainer(object):
             while not coord.should_stop():
                 timer.tic()
                 feed_dict = {lr_placeholder: learning_rate}
-                im, boxes, masks = sess.run(batch)
-                print(im.shape, boxes.shape, masks.shape)
-                assert False
 
                 run_ops = [
                     net._losses['rpn_cross_entropy'],

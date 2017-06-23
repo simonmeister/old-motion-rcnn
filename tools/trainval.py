@@ -28,7 +28,7 @@ def parse_args():
                         default='cityscapes', type=str)
     parser.add_argument('--split', dest='train_split',
                         help='dataset split to train on',
-                        default='val', type=str)
+                        default='train', type=str)
     parser.add_argument('--valsplit', dest='val_split',
                         help='dataset split to evalute on during training',
                         default='val', type=str)

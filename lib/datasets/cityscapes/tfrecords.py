@@ -198,12 +198,12 @@ def _write_tfrecord(record_dir, dataset_dir, split_name, is_training=False):
            == len(next_paths) == len(instance_paths)
 
     if is_training:
-        zipped = zip(image_paths, image_ids, instance_paths)
+        zipped = list(zip(image_paths, image_ids, instance_paths))
         random.seed(0)
-        shuffled = random.shuffle(zipped)
-        image_paths, image_ids, instance_paths = zip(*shuffled)
+        random.shuffle(zipped)
+        image_paths, image_ids, instance_paths = zip(*zipped)
 
-    num_per_shard = cfg.DATA.EXAMPLES_PER_TFRECORD
+    num_per_shard = cfg.EXAMPLES_PER_TFRECORD
     num_shards = int(math.ceil(len(image_ids) / float(num_per_shard)))
 
     print('creating max. {} examples in {} shards with at most {} examples each'
