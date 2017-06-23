@@ -6,7 +6,8 @@ This repository contains the official TensorFlow implementation of
 ## Requirements
 
 - [tensorflow (>= 1.0.0)](https://www.tensorflow.org/install/install_linux)
-- [numpy](https://github.com/numpy/numpy/blob/master/INSTALL.rst.txt)
+- `pip install tensorflow-gpu pillow opencv-python easydict`
+
 
 ## Setup
 - create `./output` directory
