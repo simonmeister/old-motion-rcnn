@@ -11,10 +11,10 @@ This repository contains the official TensorFlow implementation of
 ## Setup
 - create `./output` directory
 - copy `env_template/env.yml` to `output/env.yml` and adapt for your machine setup
-- clone `https://github.com/mcordts/cityscapesScripts` to `./data`
+- TODO clone `https://github.com/mcordts/cityscapesScripts` to `./data`
 - download `http://download.tensorflow.org/models/resnet_v1_50_2016_08_28.tar.gz` and unzip to `./data/models/`
 - go to `./libs` and run `make`
-- go to `./data/cityscapesScripts` and run `python setup.py build_ext --inplace`
+- TODO go to `./data/cityscapesScripts` and run `python setup.py build_ext --inplace`
 - run `create_tfrecords.py` with each `--dataset`/`--split` combination you need
 
 ## Usage

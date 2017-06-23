@@ -53,7 +53,8 @@ __C.TRAIN.SUMMARY_INTERVAL = 10
 # Scale to use during training
 # The scale is the pixel size of an image's shortest side
 # Can be a single number or a tuple with min/max for random scale sampling
-__C.TRAIN.SCALE = [800, 1024]
+__C.TRAIN.SCALE = 128
+#[800, 1024]
 
 # Number of examples per batch
 __C.TRAIN.BATCH_SIZE = 1
@@ -232,8 +233,8 @@ __C.CHECKPOINT_DIR = osp.abspath(env_cfg.CHECKPOINT_DIR)
 __C.EXAMPLES_PER_TFRECORD = 500
 
 # Where to store experiment output data other than checkpoints
-__C.LOG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'outputs', 'logs'))
-__C.CONFIG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'outputs', 'cfgs'))
+__C.LOG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'output', 'logs'))
+__C.CONFIG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'output', 'cfgs'))
 
 # Name (or path to) the matlab executable
 __C.MATLAB = 'matlab'

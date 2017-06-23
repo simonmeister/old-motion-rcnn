@@ -1,15 +1,4 @@
-import os.path as osp
 import sys
+import os
 
-def add_path(path):
-    if path not in sys.path:
-        sys.path.insert(0, path)
-
-this_dir = osp.dirname(__file__)
-
-# Add lib to PYTHONPATH
-lib_path = osp.join(this_dir, '..', 'lib')
-add_path(lib_path)
-
-cs_path = osp.join(this_dir, '..', 'data', 'cityscapesScripts')
-add_path(cs_path)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'lib'))

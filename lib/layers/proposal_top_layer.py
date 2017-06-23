@@ -13,7 +13,7 @@ from utils.bbox_transform import bbox_transform_inv, clip_boxes
 import numpy.random as npr
 
 
-def proposal_top_layer(rpn_scores, rpn_bbox_pred, im_info, anchors, num_anchors):
+def proposal_top_layer(rpn_scores, rpn_bbox_pred, im_size, anchors, num_anchors):
     """Given predicted objectness and bbox deltas, returns the bboxes and scores of top
     scoring roi proposals.
 
@@ -30,7 +30,6 @@ def proposal_top_layer(rpn_scores, rpn_bbox_pred, im_info, anchors, num_anchors)
         scores: (N,), objectness (positive) score
     """
     rpn_top_n = cfg.TEST.RPN_TOP_N
-    im_info = im_info[0]
 
     scores = rpn_scores[:, 0:1]
 
@@ -53,7 +52,7 @@ def proposal_top_layer(rpn_scores, rpn_bbox_pred, im_info, anchors, num_anchors)
     proposals = bbox_transform_inv(anchors, rpn_bbox_pred)
 
     # Clip predicted boxes to image
-    proposals = clip_boxes(proposals, im_info[:2])
+    proposals = clip_boxes(proposals, im_size)
 
     # Output rois blob
     # Our RPN implementation only supports a single input image, so all

@@ -16,7 +16,7 @@ from utils.cython_bbox import bbox_overlaps
 from utils.bbox_transform import bbox_transform
 
 
-def anchor_target_layer(gt_boxes, im_info, all_anchors, num_anchors):
+def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
     """Returns targets for all rpn anchor predictions.
 
     Same as the anchor target layer in original Fast/er RCNN.
@@ -35,7 +35,6 @@ def anchor_target_layer(gt_boxes, im_info, all_anchors, num_anchors):
     A = num_anchors
     total_anchors = all_anchors.shape[0]
     K = total_anchors / num_anchors
-    # im_info = im_info[0]
 
     # allow boxes to sit over the edge by a small amount
     # _allowed_border = 0
@@ -44,8 +43,8 @@ def anchor_target_layer(gt_boxes, im_info, all_anchors, num_anchors):
     # inds_inside = np.where(
     #     (all_anchors[:, 0] >= -_allowed_border) &
     #     (all_anchors[:, 1] >= -_allowed_border) &
-    #     (all_anchors[:, 2] < im_info[1] + _allowed_border) &  # width
-    #     (all_anchors[:, 3] < im_info[0] + _allowed_border)  # height
+    #     (all_anchors[:, 2] < im_size[1] + _allowed_border) &  # width
+    #     (all_anchors[:, 3] < im_size[0] + _allowed_border)  # height
     # )[0]
     inds_inside = np.ones([A], dtype=bool)
 

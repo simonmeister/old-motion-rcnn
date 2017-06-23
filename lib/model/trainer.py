@@ -11,10 +11,11 @@ import sys
 import time
 
 import tensorflow as tf
+from tensorflow.contrib import slim
 
 from model.config import cfg
 from utils.timer import Timer
-from datasets.cityscapes.evaluate import evaluate_np_preds as evaluate_cs
+from datasets.cityscapes.cityscapesscripts.evaluate import evaluate_np_preds as evaluate_cs
 from layers.mask_util import binary_mask
 
 
@@ -24,6 +25,7 @@ class Trainer(object):
     def __init__(self, network_cls, dataset,
                  ckpt_dir, tbdir, pretrained_model=None):
         self.network_cls = network_cls
+        self.dataset = dataset
         self.ckpt_dir = ckpt_dir
         self.tbdir = tbdir
         self.tbvaldir = tbdir + '_val'
@@ -38,45 +40,59 @@ class Trainer(object):
     def train_val(self, schedule):
         for epochs, learning_rate in schedule:
             for epoch in range(epochs):
-                self.train_epoch(epoch, learning_rate)
-                self.evaluate(epoch)
+                self.train_epoch(learning_rate)
+                self.evaluate()
 
     def train_epoch(self, learning_rate):
-        seed = cfg.RNG_INITIAL_SEED + epoch * cfg.RNG_EPOCH_SEED_INCREMENT
-        np.random.seed(seed)
-
         with tf.Graph().as_default():
-            tf.set_random_seed(seed)
             tfconfig = tf.ConfigProto(allow_soft_placement=True)
             tfconfig.gpu_options.allow_growth = True
             with tf.Session(config=tfconfig) as sess:
                 self._train_epoch(sess, learning_rate)
 
     def _train_epoch(self, sess, learning_rate):
-        net = self.network_cls(self.dataset.get_train_batch(),
+        with tf.device('/cpu:0'):
+            batch = self.dataset.get_train_batch()
+        net = self.network_cls(batch,
                                is_training=True,
                                num_classes=self.dataset.num_classes)
 
         train_op, lr_placeholder = self._get_train_op(net)
 
-        saver = tf.train.Saver(max_to_keep=cfg.CHECKPOINTS_MAX_TO_KEEP,
+        saver = tf.train.Saver(max_to_keep=cfg.TRAIN.CHECKPOINTS_MAX_TO_KEEP,
                                keep_checkpoint_every_n_hours=4)
 
         ckpt = tf.train.get_checkpoint_state(self.ckpt_dir)
+        sess.run(tf.local_variables_initializer())
+        sess.run(tf.global_variables_initializer())
         if ckpt is None:
-            epoch = 0
-            print('Loading initial model weights from {:s}'.format(self.pretrained_model))
+            assert self.pretrained_model, 'Pre-trained resnet_v1_50 not found. See README.'
+            vars_to_restore = slim.get_variables_to_restore(include=['resnet_v1_50'])
+            vars_to_restore = [v for v in vars_to_restore if not 'Momentum' in v.name]
+            restorer = tf.train.Saver(vars_to_restore)
+            print('Loading initial model weights from {}'.format(self.pretrained_model))
             restorer.restore(sess, self.pretrained_model)
             print('Loaded.')
+            epoch = 0
         else:
             ckpt_path = ckpt.model_checkpoint_path
-            epoch = int(ckpt_path.split('/')[-1].split('-')[-1])
-            print('Restoring model checkpoint from {:s}'.format(ckpt_path))
+            print('Restoring model checkpoint from {}'.format(ckpt_path))
             saver.restore(sess, ckpt_path)
             print('Restored.')
+            epoch = int(ckpt_path.split('/')[-1].split('-')[-1])
+
+        seed = cfg.RNG_INITIAL_SEED + epoch * cfg.RNG_EPOCH_SEED_INCREMENT
+        np.random.seed(seed)
+        tf.set_random_seed(seed)
 
         writer = tf.summary.FileWriter(self.tbdir, sess.graph)
         coord = tf.train.Coordinator()
+        threads = []
+        print (tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS))
+        for qr in tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS):
+            threads.extend(qr.create_threads(sess, coord=coord, daemon=True,
+                                             start=True))
+
         threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
         timer = Timer()
@@ -87,13 +103,16 @@ class Trainer(object):
             while not coord.should_stop():
                 timer.tic()
                 feed_dict = {lr_placeholder: learning_rate}
+                im, boxes, masks = sess.run(batch)
+                print(im.shape, boxes.shape, masks.shape)
+                assert False
 
                 run_ops = [
                     net._losses['rpn_cross_entropy'],
                     net._losses['rpn_loss_box'],
                     net._losses['cross_entropy'],
                     net._losses['loss_box'],
-                    net._losses['mask_loss']
+                    net._losses['mask_loss'],
                     net._losses['total_loss'],
                     train_op
                 ]
@@ -116,7 +135,7 @@ class Trainer(object):
                     print('epoch {} [%d / %d at {:.3f} s/batch] '
                           'loss: {:.4f} ({:.4f}|{:.4f} rpn cls|box, {:.4f}|{:.4f} cls|box, {:.4f} mask)'
                           ' - lr {}'
-                          .format(epoch, i, max_i, timer.average_time
+                          .format(epoch, i, max_i, timer.average_time,
                                   total_loss, rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, mask_loss,
                                   lr.eval()))
                 i += 1
@@ -130,12 +149,12 @@ class Trainer(object):
         coord.join(threads)
         print('Finished epoch {} and wrote checkpoint.'.format(epoch))
 
-    def _get_train_op(net):
+    def _get_train_op(self, net):
         loss = net._losses['total_loss']
 
         lr_placeholder = tf.placeholder(tf.float32, name='learning_rate')
         tf.summary.scalar('TRAIN/learning_rate', lr_placeholder)
-        tf.train.MomentumOptimizer(lr, cfg.TRAIN.MOMENTUM)
+        optimizer = tf.train.MomentumOptimizer(lr_placeholder, cfg.TRAIN.MOMENTUM)
 
         # Compute the gradients wrt the loss
         gvs = optimizer.compute_gradients(loss)
@@ -156,7 +175,7 @@ class Trainer(object):
 
         return train_op, lr_placeholder
 
-    def evaluate(self, epoch=0):
+    def evaluate(self):
         with tf.Graph().as_default():
             tfconfig = tf.ConfigProto(allow_soft_placement=True)
             tfconfig.gpu_options.allow_growth = True
@@ -164,15 +183,17 @@ class Trainer(object):
                 self._evaluate_cs(sess, epoch)
         # TODO add KITTI 2015 eval
 
-    def _evaluate_cs(self, sess, epoch):
+    def _evaluate_cs(self, sess):
         ckpt = tf.train.get_checkpoint_state(self.ckpt_dir)
         assert ckpt is not None
 
         writer = tf.summary.FileWriter(self.tbvaldir)
 
+        ckpt_path = ckpt.model_checkpoint_path
+        epoch = int(ckpt_path.split('/')[-1].split('-')[-1])
         print('Loading model checkpoint for evaluation: {:s}'.format(ckpt_path))
         saver = tf.train.Saver()
-        saver.restore(sess, ckpt.model_checkpoint_path)
+        saver.restore(sess, ckpt_path)
         print('Loaded.')
 
         batch = self.dataset.get_val_batch()

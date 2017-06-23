@@ -31,7 +31,6 @@ def normalize_image(image):
 
 
 def _resize_gt_masks(gt_masks, height, width):
-    gt_masks = tf.cast(gt_masks, tf.float32)
     gt_masks = tf.expand_dims(gt_masks, -1)
     gt_masks = tf.image.resize_nearest_neighbor(gt_masks, [height, width])
     gt_masks = tf.squeeze(gt_masks, axis=[-1])
@@ -56,12 +55,10 @@ def resize(shorter_side, image, gt_boxes, gt_masks):
     """Resizes ground truth example consistently such that the shorter side
     of the image is inside the range given as shorter_side.
     """
-    if not isinstance(shorter_side, list):
-        shorter_side = [shorter_side] * 2
-
     height, width = tf.unstack(tf.shape(image))[:2]
-    shorter_side = tf.random_uniform([], shorter_side[0], shorter_side[1],
-                                     dtype=tf.int32)
+    if isinstance(shorter_side, list):
+        shorter_side = tf.random_uniform([], shorter_side[0], shorter_side[1],
+                                         dtype=tf.int32)
 
     height = tf.to_float(height)
     width = tf.to_float(width)

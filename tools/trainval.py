@@ -3,12 +3,13 @@ from __future__ import absolute_import, division, print_function
 import argparse
 import pprint
 import sys
+import os
 
 import tensorflow as tf
 
 import _init_paths
 from datasets.cityscapes.labels import NUM_TRAIN_CLASSES
-from datasets.factory import get_dataset
+from datasets.batch import get_batch
 from model.trainer import Trainer
 from model.config import cfg, cfg_from_file, cfg_from_list, write_cfg_to_file
 from nets.resnet_v1 import resnetv1
@@ -29,21 +30,20 @@ def parse_args():
                         help='dataset split to train on',
                         default='val', type=str)
     parser.add_argument('--valsplit', dest='val_split',
-                        help='dataset split to train on',
+                        help='dataset split to evalute on during training',
                         default='val', type=str)
     parser.add_argument('--ex', dest='experiment_name',
                         help='name of experiment',
                         default='default', type=str)
+    parser.add_argument('--ow', dest='overwrite',
+                        help='overwrite experiment',
+                        action='store_true')
     #parser.add_argument('--net', dest='net',
     #                  help='backbone network',
     #                  default='res50', type=str)
     parser.add_argument('--set', dest='set_cfgs',
                       help='set config keys', default=None,
                       nargs=argparse.REMAINDER)
-
-    if len(sys.argv) == 1:
-        parser.print_help()
-        sys.exit(1)
 
     args = parser.parse_args()
     return args
@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
     ex_cfg_file = os.path.join(cfg.CONFIG_DIR, args.experiment_name + '.yml')
 
-    if os.path.isfile(ex_cfg_file):
+    if os.path.isfile(ex_cfg_file) and not args.overwrite:
         cfg_from_file(ex_cfg_file)
     if args.cfg_file is not None:
         cfg_from_file(args.cfg_file)
@@ -84,14 +84,15 @@ if __name__ == '__main__':
     dataset = Dataset()
     dataset.num_classes = NUM_TRAIN_CLASSES
 
-    dataset.get_train_batch = lambda: get_example(
+    dataset.get_train_batch = lambda: get_batch(
         args.dataset, args.train_split, cfg.TFRECORD_DIR,
         is_training=True, batch_size=cfg.TRAIN.BATCH_SIZE)
 
-    dataset.get_val_batch = lambda: get_example(
-        args.dataset, FLAGS.train_split, cfg.TFRECORDS_DIR,
+    dataset.get_val_batch = lambda: get_batch(
+        args.dataset, FLAGS.val_split, cfg.TFRECORD_DIR,
         is_training=False, batch_size=cfg.TRAIN.BATCH_SIZE)
 
     trainer = Trainer(resnetv1, dataset,
+                      pretrained_model='data/models/resnet_v1_50.ckpt',
                       ckpt_dir=ckpt_dir, tbdir=log_dir)
     trainer.train_val(zip(cfg.TRAIN.EPOCHS, cfg.TRAIN.LEARNING_RATES))

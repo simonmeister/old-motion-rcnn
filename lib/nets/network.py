@@ -43,17 +43,17 @@ class Network(object):
         self._event_summaries = {}
 
         self._image = input_batch[0]
-        self._im_info = input_batch[1]
-        self._gt_boxes = input_batch[2]
-        self._gt_masks = input_batch[3]
+        self._im_size = tf.unstack(tf.shape(self._image), num=4)[1:3]
+        self._gt_boxes = input_batch[1]
+        self._gt_masks = input_batch[2]
 
         self._num_classes = num_classes
         self._mode = 'TRAIN' if is_training else 'TEST'
         self._anchor_scales = cfg.ANCHOR_SCALES,
-        self._num_scales = len(anchor_scales)
+        self._num_scales = len(self._anchor_scales)
 
         self._anchor_ratios = cfg.ANCHOR_RATIOS
-        self._num_ratios = len(anchor_ratios)
+        self._num_ratios = len(self._anchor_ratios)
 
         self._num_anchors = self._num_scales * self._num_ratios
 
@@ -73,7 +73,7 @@ class Network(object):
         for var in tf.trainable_variables():
             self._train_summaries.append(var)
 
-        if mode == 'TEST' and cfg.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED:
+        if not is_training and cfg.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED:
             stds = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_STDS), (self._num_classes))
             means = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_MEANS), (self._num_classes))
             self._predictions['bbox_pred'] *= stds
@@ -107,7 +107,8 @@ class Network(object):
         with tf.variable_scope(name) as scope:
             batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name='batch_id'), [1])
             # Get the normalized coordinates of bboxes
-            height, width = tf.shape(image)[1:3]
+            height = tf.to_float(self._im_size[0])
+            width = tf.to_float(self._im_size[1])
             x1 = tf.slice(rois, [0, 1], [-1, 1], name='x1') / width
             y1 = tf.slice(rois, [0, 2], [-1, 1], name='y1') / height
             x2 = tf.slice(rois, [0, 3], [-1, 1], name='x2') / width
@@ -122,9 +123,9 @@ class Network(object):
         return crops
 
     def _assign_boxes(self, boxes):
-        assignments = tf.py_func(assign_boxes,
-                                 [boxes, self._pyramid_indices[0], self._pyramid_indices[-1]],
-                                 [tf.int32], name='assign_boxes')
+        assignments, = tf.py_func(assign_boxes,
+                                  [boxes, self._pyramid_indices[0], self._pyramid_indices[-1]],
+                                  [tf.int32], name='assign_boxes')
 
         assignments.set_shape([None])
 
@@ -139,7 +140,7 @@ class Network(object):
             reordered_indices = []
 
             for i, level in zip(self._pyramid_indices, pyramid):
-                indices = tf.where(level_assignments == i)
+                indices = tf.squeeze(tf.where(level_assignments == i))
                 reordered_rois = tf.gather(rois, indices)
                 roi_crops = self._crop_rois(level, reordered_rois,
                                             resized_height=14, resized_width=14,
@@ -148,13 +149,13 @@ class Network(object):
                 reordered_indices.append(indices)
 
             reordered_roi_crops = tf.concat(reordered_roi_crops, axis=0)
-            reordered_indices = tf.concat(reordered_indices, axis=0)
-            num_rois = tf.shape(boxes)[0]
-            roi_crops_shape = tf.constant([num_rois, 14, 14, 256])
+            reordered_indices = tf.to_int32(tf.concat(reordered_indices, axis=0))
+            num_rois = tf.unstack(tf.shape(rois))[0]
+            roi_crops_shape = tf.stack([num_rois, 14, 14, 256], axis=0)
             roi_crops = tf.scatter_nd(reordered_indices, reordered_roi_crops, roi_crops_shape)
         return roi_crops
 
-    def _build_anchors(pyramid):
+    def _build_anchors(self, pyramid):
         anchors = []
         for level, stride in zip(pyramid, self._pyramid_strides):
             level_anchors = self._generate_level_anchors(level, stride)
@@ -166,10 +167,10 @@ class Network(object):
     def _generate_level_anchors(self, level, stride):
         with tf.variable_scope('ANCHOR_' + str(stride)) as scope:
             height, width = tf.unstack(tf.shape(level))[1:3]
-            anchors = tf.py_func(generate_level_anchors,
-                                 [height, width, stride,
-                                  self._anchor_scales, self._anchor_ratios],
-                                  [tf.float32], name='generate_level_anchors')
+            anchors, = tf.py_func(generate_level_anchors,
+                                  [height, width, stride,
+                                   self._anchor_scales, self._anchor_ratios],
+                                   [tf.float32], name='generate_level_anchors')
 
             anchors.set_shape([None, 4])
 
@@ -188,7 +189,7 @@ class Network(object):
 
         return rois, roi_scores, cls_scores
 
-    def _mask_target_layer(self, rois, roi_scores, name):
+    def _mask_target_layer(self, rois, roi_scores, cls_scores, name):
         with tf.variable_scope(name) as scope:
             rois, roi_scores, cls_scores = tf.py_func(
                 mask_target_layer,
@@ -203,7 +204,7 @@ class Network(object):
                                        resized_height=28, resized_width=28,
                                        name='gt_crops')
 
-            self._mask_targets['mask_targets'] = gt_crops
+            self._mask_targets['mask_targets'] = tf.to_float(gt_crops)
 
             self._score_summaries.update(self._mask_targets)
 
@@ -211,16 +212,14 @@ class Network(object):
 
     def _roi_refine_layer(self, rois, bbox_pred, name):
         with tf.variable_scope(name) as scope:
-            rois, roi_scores, cls_scores = tf.py_func(
+            rois, = tf.py_func(
                 roi_refine_layer,
-                [bbox_pred],
-                [tf.float32, tf.float32, tf.float32])
+                [rois, bbox_pred, self._im_size],
+                [tf.float32])
 
             rois.set_shape([None, 5])
-            roi_scores.set_shape([None])
-            cls_scores.set_shape([None])
 
-        return rois, roi_scores, cls_scores
+        return rois
 
     ###########################################################################
     # Faster R-CNN layers
@@ -230,7 +229,7 @@ class Network(object):
         with tf.variable_scope(name) as scope:
             rpn_labels, rpn_bbox_targets, rpn_bbox_inside_weights, rpn_bbox_outside_weights = tf.py_func(
                 anchor_target_layer,
-                [self._gt_boxes, self._im_info, self._anchors, self._num_anchors],
+                [self._gt_boxes, self._im_size, self._anchors, self._num_anchors],
                 [tf.float32, tf.float32, tf.float32, tf.float32])
 
             rpn_labels.set_shape([None])
@@ -251,7 +250,7 @@ class Network(object):
     def _proposal_top_layer(self, rpn_scores, rpn_bbox_pred, name):
         with tf.variable_scope(name) as scope:
             rois, rpn_logits = tf.py_func(proposal_top_layer,
-                                          [rpn_scores, rpn_bbox_pred, self._im_info,
+                                          [rpn_scores, rpn_bbox_pred, self._im_size,
                                            self._anchors, self._num_anchors],
                                           [tf.float32, tf.float32])
             rois.set_shape([cfg.TEST.RPN_TOP_N, 5])
@@ -262,7 +261,7 @@ class Network(object):
     def _proposal_layer(self, rpn_scores, rpn_bbox_pred, name):
         with tf.variable_scope(name) as scope:
             rois, rpn_logits = tf.py_func(proposal_layer,
-                                          [rpn_scores, rpn_bbox_pred, self._im_info, self._mode,
+                                          [rpn_scores, rpn_bbox_pred, self._im_size, self._mode,
                                            self._anchors, self._num_anchors],
                                           [tf.float32, tf.float32])
             rois.set_shape([None, 5])
@@ -333,7 +332,7 @@ class Network(object):
             rpn_bbox_outside_weights = self._anchor_targets['rpn_bbox_outside_weights']
             rpn_loss_box = self._smooth_l1_loss(rpn_bbox_pred, rpn_bbox_targets,
                                                 rpn_bbox_inside_weights, rpn_bbox_outside_weights,
-                                                sigma=sigma_rpn, dim=[1, 2, 3])
+                                                sigma=sigma_rpn, dim=[1])
 
             # RCNN, class loss
             cls_logits = self._predictions['cls_logits']
@@ -377,15 +376,15 @@ class Network(object):
     # Summaries
     ###########################################################################
 
-    def color_mask(rois, classes, masks, height, width):
-        color_mask = tf.py_func(
+    def _color_mask(self, rois, classes, masks, height, width):
+        im, = tf.py_func(
             color_mask,
             [rois, classes, masks, height, width],
             [tf.float32])
 
-        color_mask.set_shape([None, None, 3])
+        im.set_shape([None, None, 3])
 
-        return color_mask
+        return im
 
     def _add_image_summary(self, image, rois, classes, masks):
         # add back mean

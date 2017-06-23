@@ -13,7 +13,7 @@ from utils.bbox_transform import bbox_transform_inv, clip_boxes
 from utils.nms_wrapper import nms
 
 
-def proposal_layer(rpn_scores, rpn_bbox_pred, im_info, cfg_key, anchors, num_anchors):
+def proposal_layer(rpn_scores, rpn_bbox_pred, im_size, cfg_key, anchors, num_anchors):
     """Given predicted objectness and bbox deltas, returns the bboxes and scores of top
     scoring roi proposals.
 
@@ -35,16 +35,15 @@ def proposal_layer(rpn_scores, rpn_bbox_pred, im_info, cfg_key, anchors, num_anc
     post_nms_topN = cfg[cfg_key].RPN_POST_NMS_TOP_N
     nms_thresh = cfg[cfg_key].RPN_NMS_THRESH
 
-    im_info = im_info[0]
     # Get the scores and bounding boxes
     scores = rpn_scores[:, 0:1]
     proposals = bbox_transform_inv(anchors, rpn_bbox_pred)
-    proposals = clip_boxes(proposals, im_info[:2])
+    proposals = clip_boxes(proposals, im_size)
 
     # TODO add this again?
     # 3. remove predicted boxes with either height or width < threshold
-    # (NOTE: convert min_size to input image scale stored in im_info[2])
-    # keep = _filter_boxes(proposals, min_size * im_info[2])
+    # (NOTE: convert min_size to input image scale stored in im_size[2])
+    # keep = _filter_boxes(proposals, min_size * im_size[2])
     # proposals = proposals[keep, :]
     # scores = scores[keep]
 

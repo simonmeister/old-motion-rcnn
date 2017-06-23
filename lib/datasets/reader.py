@@ -44,7 +44,6 @@ def read(tfrecord_filenames, shuffle=False):
     boxes = tf.decode_raw(features['label/boxes'], tf.float32)
     boxes = tf.reshape(boxes, [num_instances, 5])
     masks = tf.decode_raw(features['label/masks'], tf.uint8)
-    masks = tf.cast(masks, tf.int32)
     masks = tf.reshape(masks, [num_instances, ih, iw])
 
     return image, ih, iw, boxes, masks, num_instances, img_id
