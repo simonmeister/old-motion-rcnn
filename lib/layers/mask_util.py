@@ -43,7 +43,7 @@ def instange_image(rois, mask_preds, height, width):
 
 def binary_mask(roi, mask, height, width):
     full_size = np.zeros((height, width), dtype=np.float32)
-    h = box[4] - box[2] + 1
+    h = box[4] - box[2] + 1 # TODO round and cast to int
     w = box[3] - box[1] + 1
     x = box[1]
     y = box[2]
@@ -70,13 +70,13 @@ def color_mask(rois, classes, mask_preds, height, width):
 
     for i in range(rois.shape[0]):
         m = mask_preds[i, :, :, 0]
-        color = trainId2label[classes[i]].color
+        color = trainId2label[int(classes[i])].color
 
-        h = rois[i, 4] - rois[i, 2] + 1
+        h = rois[i, 4] - rois[i, 2] + 1 # TODO round and cast to int
         w = rois[i, 3] - rois[i, 1] + 1
         x = rois[i, 1]
         y = rois[i, 2]
-        m = cv2.resize(mask, (w, h), interpolation=cv2.INTER_LINEAR)
+        m = cv2.resize(m, (w, h), interpolation=cv2.INTER_LINEAR)
         m *= color
         mask[y:(y + h), x:(x + w)] = m
 

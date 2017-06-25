@@ -30,7 +30,7 @@ __C.TRAIN.MOMENTUM = 0.9
 __C.TRAIN.WEIGHT_DECAY = 0.0005
 
 # Iteration intervals for showing the loss during training, on command line interface
-__C.TRAIN.SUMMARY_INTERVAL = 10
+__C.TRAIN.DISPLAY_INTERVAL = 10
 
 # Whether to double the learning rate for bias
 __C.TRAIN.DOUBLE_BIAS = True
@@ -53,23 +53,17 @@ __C.TRAIN.SUMMARY_INTERVAL = 10
 # Scale to use during training
 # The scale is the pixel size of an image's shortest side
 # Can be a single number or a tuple with min/max for random scale sampling
-__C.TRAIN.SCALE = 128
-#[800, 1024]
+__C.TRAIN.SCALE = 400
 
-# Number of examples per batch
-__C.TRAIN.BATCH_SIZE = 1
+# Minibatch size (number of regions of interest [ROIs])
+# Maximum number of rois after sampling with ground truth
+__C.TRAIN.MAX_SAMPLED_ROIS = 512
 
 # Fraction of minibatch that is labeled foreground (i.e. class > 0)
 __C.TRAIN.FG_FRACTION = 0.25
 
 # Overlap threshold for a ROI to be considered foreground (if >= FG_THRESH)
 __C.TRAIN.FG_THRESH = 0.5
-
-# Overlap threshold for a ROI to be processed by the mask head (if >= MASK_THRESH)
-__C.TRAIN.MASK_THRESH = 0.5
-
-# Maximum number of ground truth masks to sample per image during training
-__C.TRAIN.MASKS_TOP_N = 64
 
 # Overlap threshold for a ROI to be considered background (class = 0 if
 # overlap in [LO, HI))
@@ -88,12 +82,12 @@ __C.TRAIN.BBOX_THRESH = 0.5
 
 
 # Normalize the targets (subtract empirical mean, divide by empirical stddev)
-__C.TRAIN.BBOX_NORMALIZE_TARGETS = False
+__C.TRAIN.BBOX_NORMALIZE_TARGETS = True
 # Deprecated (inside weights)
 __C.TRAIN.BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
 # Normalize the targets using "precomputed" (or made up) means and stdevs
 # (BBOX_NORMALIZE_TARGETS must also be True)
-__C.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED = False
+__C.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED = True
 __C.TRAIN.BBOX_NORMALIZE_MEANS = (0.0, 0.0, 0.0, 0.0)
 __C.TRAIN.BBOX_NORMALIZE_STDS = (0.1, 0.1, 0.2, 0.2)
 
@@ -174,7 +168,7 @@ __C.TEST.RPN_NMS_THRESH = 0.7
 __C.TEST.RPN_PRE_NMS_TOP_N = 6000
 
 ## Number of top scoring boxes to keep after applying NMS to RPN proposals
-__C.TEST.RPN_POST_NMS_TOP_N = 300
+__C.TEST.RPN_POST_NMS_TOP_N = 100
 
 # Proposal height and width both need to be greater than RPN_MIN_SIZE (at orig image scale)
 # __C.TEST.RPN_MIN_SIZE = 16
@@ -186,8 +180,6 @@ __C.TEST.MODE = 'nms'
 # Only useful when TEST.MODE is 'top', specifies the number of top proposals to select
 __C.TEST.RPN_TOP_N = 5000
 
-# Maximum number of ground truth masks to process per image during testing
-__C.TEST.MASKS_TOP_N = 100
 
 #
 # ResNet options

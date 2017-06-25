@@ -18,7 +18,7 @@ from layers.anchor_target_layer import anchor_target_layer
 from layers.proposal_target_layer import proposal_target_layer
 from layers.generate_level_anchors import generate_level_anchors
 from layers.assign_boxes import assign_boxes
-from layers.mask_target_layer import mask_target_layer
+# from layers.mask_target_layer import mask_target_layer
 from layers.mask_layer import mask_layer
 from layers.roi_refine_layer import roi_refine_layer
 from layers.mask_util import color_mask
@@ -29,8 +29,8 @@ from model.config import cfg
 class Network(object):
     def __init__(self, input_batch, is_training, num_classes):
         self._pyramid_strides = [4, 8, 16, 32, 64]
-        self._pyramid_indices = [2, 3, 4, 5, 6]
-        self._batch_size = cfg.TRAIN.BATCH_SIZE
+        self._pyramid_indices = [2, 3, 4, 5] # , 6
+        self._batch_size = 1
         self._predictions = {}
         self._losses = {}
         self._anchor_targets = {}
@@ -44,8 +44,9 @@ class Network(object):
 
         self._image = input_batch[0]
         self._im_size = tf.unstack(tf.shape(self._image), num=4)[1:3]
-        self._gt_boxes = input_batch[1]
-        self._gt_masks = input_batch[2]
+        h, w = self._im_size
+        self._gt_boxes = tf.reshape(input_batch[1], [-1, 5])
+        self._gt_masks = tf.reshape(input_batch[2], [-1, h, w, 1])
 
         self._num_classes = num_classes
         self._mode = 'TRAIN' if is_training else 'TEST'
@@ -81,13 +82,12 @@ class Network(object):
         else:
             self._add_losses()
 
-
         with tf.device('/cpu:0'):
-            self._image_summary = self._add_image_summary(
-                self._image,
-                self._predictions['mask_rois'],
-                self._predictions['masks'],
-                self._predictions['mask_classes'])
+            #self._image_summary = self._add_image_summary(
+            #    self._image,
+            #    self._predictions['rois'],
+            #    self._predictions['classes'],
+            #    self._predictions['masks'])
             for key, var in self._event_summaries.items():
                 tf.summary.scalar(key, var)
             for key, var in self._score_summaries.items():
@@ -103,19 +103,20 @@ class Network(object):
     # Mask R-CNN layers
     ###########################################################################
 
-    def _crop_rois(self, image, rois, name, resized_height, resized_width):
+    def _crop_rois(self, image, rois, name, resized_height, resized_width, batch_ids=None):
         with tf.variable_scope(name) as scope:
-            batch_ids = tf.squeeze(tf.slice(rois, [0, 0], [-1, 1], name='batch_id'), [1])
+            if batch_ids is None:
+                batch_ids = rois[:, 0]
             # Get the normalized coordinates of bboxes
             height = tf.to_float(self._im_size[0])
             width = tf.to_float(self._im_size[1])
-            x1 = tf.slice(rois, [0, 1], [-1, 1], name='x1') / width
-            y1 = tf.slice(rois, [0, 2], [-1, 1], name='y1') / height
-            x2 = tf.slice(rois, [0, 3], [-1, 1], name='x2') / width
-            y2 = tf.slice(rois, [0, 4], [-1, 1], name='y2') / height
+            x1 = rois[:, 1] / width
+            y1 = rois[:, 2] / height
+            x2 = rois[:, 3] / width
+            y2 = rois[:, 4] / height
             # Won't be backpropagated to boxes anyway, but to save time # TODO verify
-            # boxes = tf.stop_gradient(tf.concat([y1, x1, y2, x2], axis=1))
-            boxes = tf.concat([y1, x1, y2, x2], axis=1)
+            # boxes = tf.stop_gradient(tf.stack([y1, x1, y2, x2], axis=1))
+            boxes = tf.stack([y1, x1, y2, x2], axis=1)
             crops = tf.image.crop_and_resize(image, boxes,
                                              tf.to_int32(batch_ids),
                                              [resized_height, resized_width],
@@ -140,7 +141,7 @@ class Network(object):
             reordered_indices = []
 
             for i, level in zip(self._pyramid_indices, pyramid):
-                indices = tf.squeeze(tf.where(level_assignments == i))
+                indices = tf.where(tf.equal(level_assignments, i))[:, 0]
                 reordered_rois = tf.gather(rois, indices)
                 roi_crops = self._crop_rois(level, reordered_rois,
                                             resized_height=14, resized_width=14,
@@ -152,6 +153,7 @@ class Network(object):
             reordered_indices = tf.to_int32(tf.concat(reordered_indices, axis=0))
             num_rois = tf.unstack(tf.shape(rois))[0]
             roi_crops_shape = tf.stack([num_rois, 14, 14, 256], axis=0)
+            reordered_indices = tf.expand_dims(reordered_indices, axis=1)
             roi_crops = tf.scatter_nd(reordered_indices, reordered_roi_crops, roi_crops_shape)
         return roi_crops
 
@@ -176,45 +178,11 @@ class Network(object):
 
         return anchors
 
-    def _mask_layer(self, rois, roi_scores, cls_scores, name):
-        with tf.variable_scope(name) as scope:
-            rois, roi_scores, cls_scores = tf.py_func(
-                mask_layer,
-                [rois, roi_scores, cls_scores, self._mode],
-                [tf.float32, tf.float32, tf.float32])
-
-            rois.set_shape([None, 5])
-            roi_scores.set_shape([None])
-            cls_scores.set_shape([None])
-
-        return rois, roi_scores, cls_scores
-
-    def _mask_target_layer(self, rois, roi_scores, cls_scores, name):
-        with tf.variable_scope(name) as scope:
-            rois, roi_scores, cls_scores = tf.py_func(
-                mask_target_layer,
-                [rois, roi_scores, cls_scores, self._gt_boxes, self._mode],
-                [tf.float32, tf.float32, tf.float32])
-
-            rois.set_shape([None, 5])
-            roi_scores.set_shape([None])
-            cls_scores.set_shape([None])
-
-            gt_crops = self._crop_rois(self._gt_masks, rois,
-                                       resized_height=28, resized_width=28,
-                                       name='gt_crops')
-
-            self._mask_targets['mask_targets'] = tf.to_float(gt_crops)
-
-            self._score_summaries.update(self._mask_targets)
-
-        return rois, roi_scores, cls_scores
-
-    def _roi_refine_layer(self, rois, bbox_pred, name):
+    def _roi_refine_layer(self, rois, cls_scores, bbox_pred, name):
         with tf.variable_scope(name) as scope:
             rois, = tf.py_func(
                 roi_refine_layer,
-                [rois, bbox_pred, self._im_size],
+                [rois, cls_scores, bbox_pred, self._im_size],
                 [tf.float32])
 
             rois.set_shape([None, 5])
@@ -271,10 +239,12 @@ class Network(object):
 
     def _proposal_target_layer(self, rois, roi_scores, name):
         with tf.variable_scope(name) as scope:
-            rois, roi_scores, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights = tf.py_func(
-                proposal_target_layer,
-                [rois, roi_scores, self._gt_boxes, self._num_classes],
-                [tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32])
+            rois, roi_scores, labels, bbox_targets, bbox_inside_weights, \
+                bbox_outside_weights, gt_assignments = tf.py_func(
+                    proposal_target_layer,
+                    [rois, roi_scores, self._gt_boxes, self._num_classes],
+                    [tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32,
+                     tf.int32])
 
             rois.set_shape([None, 5])
             roi_scores.set_shape([None])
@@ -283,11 +253,17 @@ class Network(object):
             bbox_inside_weights.set_shape([None, self._num_classes * 4])
             bbox_outside_weights.set_shape([None, self._num_classes * 4])
 
+            gt_crops = self._crop_rois(self._gt_masks, rois,
+                                       batch_ids=gt_assignments,
+                                       resized_height=28, resized_width=28,
+                                       name='gt_crops')
+
             self._proposal_targets['rois'] = rois
             self._proposal_targets['labels'] = tf.to_int32(labels, name='to_int32')
             self._proposal_targets['bbox_targets'] = bbox_targets
             self._proposal_targets['bbox_inside_weights'] = bbox_inside_weights
             self._proposal_targets['bbox_outside_weights'] = bbox_outside_weights
+            self._proposal_targets['mask_targets'] = tf.to_float(gt_crops)
 
             self._score_summaries.update(self._proposal_targets)
 
@@ -350,7 +326,7 @@ class Network(object):
                                             bbox_inside_weights, bbox_outside_weights)
 
             # RCNN, mask loss
-            mask_targets = self._mask_targets['mask_targets']
+            mask_targets = self._proposal_targets['mask_targets']
             masks = self._predictions['masks']
             loss_mask = tf.reduce_mean(
                 tf.nn.sigmoid_cross_entropy_with_logits(
@@ -387,6 +363,7 @@ class Network(object):
         return im
 
     def _add_image_summary(self, image, rois, classes, masks):
+        masks = tf.to_int32(tf.round(masks))
         # add back mean
         image += cfg.PIXEL_MEANS / 255.0
         # dims for normalization
@@ -402,7 +379,8 @@ class Network(object):
         assert image.get_shape()[0] == 1
         boxes = tf.expand_dims(boxes, dim=0)
         image = tf.image.draw_bounding_boxes(image, boxes)
-        color_mask = self._color_mask(rois, classes, masks, height, width)
+        color_mask = self._color_mask(rois, classes, masks,
+                                      *tf.unstack(tf.shape(image))[1:3])
         image = image + 0.4 * color_mask
         return tf.summary.image('prediction', image)
 

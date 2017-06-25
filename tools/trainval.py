@@ -35,9 +35,9 @@ def parse_args():
     parser.add_argument('--ex', dest='experiment_name',
                         help='name of experiment',
                         default='default', type=str)
-    parser.add_argument('--ow', dest='overwrite',
+    parser.add_argument('--no-ow', dest='overwrite',
                         help='overwrite experiment',
-                        action='store_true')
+                        action='store_false')
     #parser.add_argument('--net', dest='net',
     #                  help='backbone network',
     #                  default='res50', type=str)
@@ -86,11 +86,11 @@ if __name__ == '__main__':
 
     dataset.get_train_batch = lambda: get_batch(
         args.dataset, args.train_split, cfg.TFRECORD_DIR,
-        is_training=True, batch_size=cfg.TRAIN.BATCH_SIZE)
+        is_training=True)
 
     dataset.get_val_batch = lambda: get_batch(
         args.dataset, FLAGS.val_split, cfg.TFRECORD_DIR,
-        is_training=False, batch_size=cfg.TRAIN.BATCH_SIZE)
+        is_training=False)
 
     trainer = Trainer(resnetv1, dataset,
                       pretrained_model='data/models/resnet_v1_50.ckpt',

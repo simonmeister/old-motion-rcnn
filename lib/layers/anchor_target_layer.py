@@ -46,7 +46,7 @@ def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
     #     (all_anchors[:, 2] < im_size[1] + _allowed_border) &  # width
     #     (all_anchors[:, 3] < im_size[0] + _allowed_border)  # height
     # )[0]
-    inds_inside = np.ones([A], dtype=bool)
+    inds_inside = np.arange(A)
 
     # keep only inside anchors
     anchors = all_anchors[inds_inside, :]
@@ -59,7 +59,7 @@ def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
     # overlaps (ex, gt)
     overlaps = bbox_overlaps(
         np.ascontiguousarray(anchors, dtype=np.float),
-        np.ascontiguousarray(gt_boxes, dtype=np.float))
+        np.ascontiguousarray(gt_boxes[:4], dtype=np.float))
     argmax_overlaps = overlaps.argmax(axis=1)
     max_overlaps = overlaps[np.arange(len(inds_inside)), argmax_overlaps]
     gt_argmax_overlaps = overlaps.argmax(axis=0)

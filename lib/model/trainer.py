@@ -51,8 +51,8 @@ class Trainer(object):
                 self._train_epoch(sess, learning_rate)
 
     def _train_epoch(self, sess, learning_rate):
-        #with tf.device('/cpu:0'):
-        batch = self.dataset.get_train_batch()
+        with tf.device('/cpu:0'):
+            batch = self.dataset.get_train_batch()
         net = self.network_cls(batch,
                                is_training=True,
                                num_classes=self.dataset.num_classes)
@@ -121,20 +121,21 @@ class Trainer(object):
 
                 if i % cfg.TRAIN.SUMMARY_INTERVAL == 0:
                     summary = run_results[-1]
-                    run_results = run_results[:-2]
-                    writer.add_summary(summary, float(i - 1) + epoch * max_iter)
+                    run_results = run_results[:-1]
+                    writer.add_summary(summary, float(i - 1) + epoch * max_i)
 
-                rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, mask_loss, total_loss = run_results
+                rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, mask_loss, total_loss, _ \
+                    = run_results
 
                 timer.toc()
 
                 if i % cfg.TRAIN.DISPLAY_INTERVAL == 0:
-                    print('epoch {} [%d / %d at {:.3f} s/batch] '
+                    print('epoch {} [{} / {} at {:.3f} s/batch] '
                           'loss: {:.4f} ({:.4f}|{:.4f} rpn cls|box, {:.4f}|{:.4f} cls|box, {:.4f} mask)'
                           ' - lr {}'
                           .format(epoch, i, max_i, timer.average_time,
                                   total_loss, rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, mask_loss,
-                                  lr.eval()))
+                                  learning_rate))
                 i += 1
         except tf.errors.OutOfRangeError:
             pass
@@ -177,7 +178,7 @@ class Trainer(object):
             tfconfig = tf.ConfigProto(allow_soft_placement=True)
             tfconfig.gpu_options.allow_growth = True
             with tf.Session(config=tfconfig) as sess:
-                self._evaluate_cs(sess, epoch)
+                self._evaluate_cs(sess)
         # TODO add KITTI 2015 eval
 
     def _evaluate_cs(self, sess):

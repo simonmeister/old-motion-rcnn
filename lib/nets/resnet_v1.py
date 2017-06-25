@@ -66,7 +66,7 @@ class resnetv1(Network):
             C5 = end_points[end_points_map['C5']]
             P5 = slim.conv2d(C5, 256, [1, 1], stride=1, scope='P5')
             P6 = P5[:, :2:, :2:, :]
-            pyramid = [P6, P5]
+            pyramid = [P5] # P6,
 
             for c in range(4, 1, -1):
                 this_C = end_points[end_points_map['C{}'.format(c)]]
@@ -184,6 +184,7 @@ class resnetv1(Network):
                                              activation_fn=None,
                                              scope='cls_logits')
             cls_scores = tf.nn.softmax(cls_logits, dim=1, name='cls_scores')
+            classes = tf.argmax(cls_scores, axis=1)
 
             bbox_pred = slim.fully_connected(fc_roi_features,
                                              self._num_classes * 4,
@@ -191,20 +192,17 @@ class resnetv1(Network):
                                              trainable=is_training,
                                              activation_fn=None, scope='bbox_pred')
 
-            if is_training or cfg.TEST.BBOX_REG:
-                refined_rois = self._roi_refine_layer(rois, bbox_pred, 'refined_rois')
+            if not is_training and cfg[self._mode].BBOX_REG:
+                refined_rois = self._roi_refine_layer(rois, cls_scores, bbox_pred, 'refined_rois')
+                # TODO during testing, crop refined rois + use mask_layer for NMS
+                # e.g. we pass 2000 RoIs into the bbox_pred and compute rois from them, then
+                # do NMS on these rois to go down to max. 100 detections
+                # mask_roi_crops = self._crop_rois_from_pyramid(mask_rois, pyramid, name='roi_crops')
             else:
                 refined_rois = rois
 
-            mask_layer = self._mask_target_layer if is_training else self._mask_layer
 
-            # Subsampled and re-ordered refined rois, scores and cls_scores
-            mask_rois, mask_scores, mask_cls_scores = mask_layer(refined_rois, roi_scores, cls_scores,
-                                                                 'mask_rois')
-            mask_classes = tf.argmax(mask_cls_scores, axis=1)
-
-            mask_roi_crops = self._crop_rois_from_pyramid(mask_rois, pyramid, name='roi_crops')
-            masks = self._mask_head(mask_roi_crops)
+            masks = self._mask_head(roi_crops) # mask_roi_crops
 
         self._predictions['rpn_logits'] = rpn_logits
         self._predictions['rpn_scores'] = rpn_scores
@@ -214,10 +212,10 @@ class resnetv1(Network):
         self._predictions['bbox_pred'] = bbox_pred
         self._predictions['rois'] = rois
         self._predictions['masks'] = masks
-        self._predictions['mask_rois'] = mask_rois
-        self._predictions['mask_scores'] = mask_scores
-        self._predictions['mask_cls_scores'] = mask_cls_scores
-        self._predictions['mask_classes'] = mask_classes
+        self._predictions['classes'] = classes
+        #self._predictions['mask_rois'] = mask_rois
+        #self._predictions['mask_scores'] = mask_scores
+        #self._predictions['mask_cls_scores'] = mask_cls_scores
 
         self._score_summaries.update(self._predictions)
 

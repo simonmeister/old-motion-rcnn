@@ -27,17 +27,25 @@ def mask_layer(rois, roi_scores, cls_scores, cfg_key):
         roi_scores: (M,)
         cls_scores: (M, num_classes)
     """
-    if type(cfg_key) == bytes:
-        cfg_key = cfg_key.decode('utf-8')
-    masks_top_n = cfg[cfg_key].MASKS_TOP_N
 
-    order = scores.ravel().argsort()[::-1]
-    if masks_top_n > 0:
-        order = order[:masks_top_n]
+    pre_nms_topN = cfg[cfg_key].RPN_PRE_NMS_TOP_N
+    post_nms_topN = cfg[cfg_key].RPN_POST_NMS_TOP_N
+    nms_thresh = cfg[cfg_key].RPN_NMS_THRESH # TODO adjust config
+
+    # Non-maximal suppression
+    keep = nms(np.hstack((rois[:, 1:], roi_scores)), nms_thresh)
+    rois = rois[keep, :]
+    roi_scores = roi_scores[keep]
+    cls_scores = cls_scores[keep, :]
+
+    # Pick top scoring after nms
+    order = roi_scores.ravel().argsort()[::-1]
     rois = rois[order, :]
     roi_scores = roi_scores[order]
     cls_scores = cls_scores[order, :]
 
+    # Only support single image as input
     batch_inds = np.zeros((rois.shape[0], 1), dtype=np.float32)
     rois = np.hstack((batch_inds, rois))
+
     return rois, roi_scores, cls_scores
