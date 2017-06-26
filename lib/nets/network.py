@@ -18,7 +18,6 @@ from layers.anchor_target_layer import anchor_target_layer
 from layers.proposal_target_layer import proposal_target_layer
 from layers.generate_level_anchors import generate_level_anchors
 from layers.assign_boxes import assign_boxes
-# from layers.mask_target_layer import mask_target_layer
 from layers.mask_layer import mask_layer
 from layers.roi_refine_layer import roi_refine_layer
 from layers.mask_util import color_mask
@@ -83,11 +82,11 @@ class Network(object):
             self._add_losses()
 
         with tf.device('/cpu:0'):
-            #self._image_summary = self._add_image_summary(
-            #    self._image,
-            #    self._predictions['rois'],
-            #    self._predictions['classes'],
-            #    self._predictions['masks'])
+            self.summary_image = self._get_summary_image(
+                self._image,
+                self._predictions['rois'],
+                self._predictions['classes'],
+                self._predictions['masks'])
             for key, var in self._event_summaries.items():
                 tf.summary.scalar(key, var)
             for key, var in self._score_summaries.items():
@@ -188,6 +187,19 @@ class Network(object):
             rois.set_shape([None, 5])
 
         return rois
+
+    def _mask_layer(self, rois, roi_scores, cls_scores, name):
+        with tf.variable_scope(name) as scope:
+            rois, roi_scores, cls_scores = tf.py_func(
+                mask_layer,
+                [rois, roi_scores, cls_scores, self._mode],
+                [tf.float32, tf.float32, tf.float32])
+
+            rois.set_shape([None, 5])
+            roi_scores.set_shape([None])
+            cls_scores.set_shape([None])
+
+        return rois, roi_scores, cls_scores
 
     ###########################################################################
     # Faster R-CNN layers
@@ -362,7 +374,7 @@ class Network(object):
 
         return im
 
-    def _add_image_summary(self, image, rois, classes, masks):
+    def _get_summary_image(self, image, rois, classes, masks):
         masks = tf.to_int32(tf.round(masks))
         # add back mean
         image += cfg.PIXEL_MEANS / 255.0
@@ -379,10 +391,10 @@ class Network(object):
         assert image.get_shape()[0] == 1
         boxes = tf.expand_dims(boxes, dim=0)
         image = tf.image.draw_bounding_boxes(image, boxes)
-        color_mask = self._color_mask(rois, classes, masks,
-                                      *tf.unstack(tf.shape(image))[1:3])
-        image = image + 0.4 * color_mask
-        return tf.summary.image('prediction', image)
+        #color_mask = self._color_mask(rois, classes, masks,
+        #                              *tf.unstack(tf.shape(image))[1:3])
+        #image = image + 0.4 * color_mask
+        return image
 
     def _add_act_summary(self, tensor):
         tf.summary.histogram('ACT/' + tensor.op.name + '/activations', tensor)

@@ -7,6 +7,7 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 
+from utils.nms_wrapper import nms
 from model.config import cfg
 
 
@@ -28,9 +29,8 @@ def mask_layer(rois, roi_scores, cls_scores, cfg_key):
         cls_scores: (M, num_classes)
     """
 
-    pre_nms_topN = cfg[cfg_key].RPN_PRE_NMS_TOP_N
-    post_nms_topN = cfg[cfg_key].RPN_POST_NMS_TOP_N
-    nms_thresh = cfg[cfg_key].RPN_NMS_THRESH # TODO adjust config
+    topN = cfg.TEST.POST_NMS_TOP_N
+    nms_thresh = cfg.TEST.NMS_THRESH
 
     # Non-maximal suppression
     keep = nms(np.hstack((rois[:, 1:], roi_scores)), nms_thresh)
@@ -40,12 +40,13 @@ def mask_layer(rois, roi_scores, cls_scores, cfg_key):
 
     # Pick top scoring after nms
     order = roi_scores.ravel().argsort()[::-1]
+    order = order[:topN]
     rois = rois[order, :]
     roi_scores = roi_scores[order]
     cls_scores = cls_scores[order, :]
 
     # Only support single image as input
     batch_inds = np.zeros((rois.shape[0], 1), dtype=np.float32)
-    rois = np.hstack((batch_inds, rois))
+    rois = np.hstack((batch_inds, rois[:, 1:]))
 
     return rois, roi_scores, cls_scores

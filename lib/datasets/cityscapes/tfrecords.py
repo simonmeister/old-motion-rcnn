@@ -15,7 +15,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.lib.io.tf_record import TFRecordCompressionType
 
-import datasets.cityscapes.labels as labels
+import datasets.cityscapes.cityscapesscripts.labels as labels
 from model.config import cfg
 
 
@@ -176,9 +176,13 @@ def _write_tfrecord(record_dir, dataset_dir, split_name, is_training=False):
         for i, filename in enumerate(files):
             path = os.path.join(city_dir, filename)
             image_paths.append(path)
-            number_str = filename.split('_')[1].split('_')[0]
-            next_file = "{}_{}_000021_leftImg8bit.png".format(city_name, number_str)
+            # filename should be {city_name}_{seq}_{frame}_leftImg8bit.png
+            seq, frame = filename.split('_')[1:3]
+            frame_int = int(frame.lstrip('0'))
+            next_frame = str(frame_int + 2).zfill(6)
+            next_file = "{}_{}_{}_leftImg8bit.png".format(city_name, seq, next_frame)
             next_path = os.path.join(sequence_dir, city_name, next_file)
+            assert os.path.isfile(next_path)
             next_paths.append(next_path)
             image_ids.append("{}_{}".format(city_name, i))
 
@@ -258,9 +262,9 @@ def _write_tfrecord(record_dir, dataset_dir, split_name, is_training=False):
                             created_count += 1
                             tfrecord_writer.write(example.SerializeToString())
                         else:
-                            print("Skipping example {}: 0 instances".format(i))
+                            print("Skipping example {}: no instances".format(i))
     print("Created {} examples ({} skipped)."
-          .format(created_count, len(image_ids) - create_records))
+          .format(created_count, len(image_ids) - created_count))
     sys.stdout.write('\n')
     sys.stdout.flush()
 

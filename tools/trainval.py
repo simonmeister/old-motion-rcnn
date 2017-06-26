@@ -4,11 +4,12 @@ import argparse
 import pprint
 import sys
 import os
+import shutil
 
 import tensorflow as tf
 
 import _init_paths
-from datasets.cityscapes.labels import NUM_TRAIN_CLASSES
+from datasets.cityscapes.cityscapesscripts.labels import NUM_TRAIN_CLASSES
 from datasets.batch import get_batch
 from model.trainer import Trainer
 from model.config import cfg, cfg_from_file, cfg_from_list, write_cfg_to_file
@@ -38,13 +39,15 @@ def parse_args():
     parser.add_argument('--no-ow', dest='overwrite',
                         help='overwrite experiment',
                         action='store_false')
+    parser.add_argument('--gpu', dest='gpu',
+                        help='gpu id to train on',
+                        default='0', type=str)
     #parser.add_argument('--net', dest='net',
     #                  help='backbone network',
     #                  default='res50', type=str)
     parser.add_argument('--set', dest='set_cfgs',
                       help='set config keys', default=None,
                       nargs=argparse.REMAINDER)
-
     args = parser.parse_args()
     return args
 
@@ -78,8 +81,14 @@ if __name__ == '__main__':
     assert args.train_split in ['train', 'val', 'mini']
     assert args.val_split in ['val', 'mini']
 
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+
     ckpt_dir = os.path.join(cfg.CHECKPOINT_DIR, args.experiment_name)
     log_dir = os.path.join(cfg.LOG_DIR, args.experiment_name)
+    if args.overwrite:
+        shutil.rmtree(ckpt_dir, ignore_errors=True)
+        shutil.rmtree(log_dir, ignore_errors=True)
+
 
     dataset = Dataset()
     dataset.num_classes = NUM_TRAIN_CLASSES
@@ -89,7 +98,7 @@ if __name__ == '__main__':
         is_training=True)
 
     dataset.get_val_batch = lambda: get_batch(
-        args.dataset, FLAGS.val_split, cfg.TFRECORD_DIR,
+        args.dataset, args.val_split, cfg.TFRECORD_DIR,
         is_training=False)
 
     trainer = Trainer(resnetv1, dataset,

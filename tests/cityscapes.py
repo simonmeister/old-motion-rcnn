@@ -18,7 +18,7 @@ import _init_paths
 from model.config import cfg
 from datasets import reader
 from datasets.preprocess import preprocess_example
-from datasets.cityscapes.labels import trainId2label
+from datasets.cityscapes.cityscapesscripts.labels import trainId2label
 
 
 with tf.Graph().as_default():

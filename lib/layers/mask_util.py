@@ -10,7 +10,7 @@ import cv2
 
 from model.config import cfg
 from utils.bbox_transform import clip_boxes
-from datasets.cityscapes.labels import trainId2label
+from datasets.cityscapes.cityscapesscripts.labels import trainId2label
 
 
 def instange_image(rois, mask_preds, height, width):
@@ -72,10 +72,10 @@ def color_mask(rois, classes, mask_preds, height, width):
         m = mask_preds[i, :, :, 0]
         color = trainId2label[int(classes[i])].color
 
-        h = rois[i, 4] - rois[i, 2] + 1 # TODO round and cast to int
-        w = rois[i, 3] - rois[i, 1] + 1
-        x = rois[i, 1]
-        y = rois[i, 2]
+        h = int(rois[i, 4] - rois[i, 2] + 1) # TODO round and cast to int
+        w = int(rois[i, 3] - rois[i, 1] + 1)
+        x = int(rois[i, 1])
+        y = int(rois[i, 2])
         m = cv2.resize(m, (w, h), interpolation=cv2.INTER_LINEAR)
         m *= color
         mask[y:(y + h), x:(x + w)] = m

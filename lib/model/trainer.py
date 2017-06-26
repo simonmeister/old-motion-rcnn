@@ -9,6 +9,7 @@ import numpy as np
 import os
 import sys
 import time
+from tqdm import tqdm
 
 import tensorflow as tf
 from tensorflow.contrib import slim
@@ -87,11 +88,6 @@ class Trainer(object):
 
         writer = tf.summary.FileWriter(self.tbdir, sess.graph)
         coord = tf.train.Coordinator()
-        #threads = []
-        #print (tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS))
-        #for qr in tf.get_collection(tf.GraphKeys.QUEUE_RUNNERS):
-        #    threads.extend(qr.create_threads(sess, coord=coord, daemon=True,
-        #                                     start=True))
 
         threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
@@ -189,10 +185,6 @@ class Trainer(object):
 
         ckpt_path = ckpt.model_checkpoint_path
         epoch = int(ckpt_path.split('/')[-1].split('-')[-1])
-        print('Loading model checkpoint for evaluation: {:s}'.format(ckpt_path))
-        saver = tf.train.Saver()
-        saver.restore(sess, ckpt_path)
-        print('Loaded.')
 
         batch = self.dataset.get_val_batch()
         image = batch[0]
@@ -200,35 +192,50 @@ class Trainer(object):
                                is_training=False,
                                num_classes=self.dataset.num_classes)
 
+        sess.run(tf.local_variables_initializer())
+        sess.run(tf.global_variables_initializer())
+        print('Loading model checkpoint for evaluation: {:s}'.format(ckpt_path))
+        saver = tf.train.Saver()
+        saver.restore(sess, ckpt_path)
+        print('Loaded.')
+
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+
         iters = 0
         avg_losses = np.zeros([len(net._losses)])
         pred_np_arrays = []
+        summary_images = []
         try:
             while not coord.should_stop():
                 loss_ops = [v for (k, v) in net._losses]
                 pred_ops = [
                     net._predictions['masks'],
-                    net._predictions['mask_cls_scores'],
-                    net._predictions['mask_scores'],
-                    net._predictions['mask_rois']
+                    net._predictions['cls_scores'],
+                    net._predictions['scores'],
+                    net._predictions['rois']
                 ]
 
-                run_results = sess.run(loss_ops + pred_ops + [tf.shape(image)])
+                run_results = sess.run(loss_ops + pred_ops + [tf.shape(image), net.summary_image])
                 loss_results = run_results[:len(loss_ops)]
-                pred_results = run_results[len(loss_ops):]
-                image_shape_np = run_results[-1]
+                pred_results = run_results[len(loss_ops):-2]
+                image_shape_np = run_results[-2]
+                summary_image_np = run_results[-1]
                 avg_losses += loss_results
                 pred_np_arrays.append(pred_results)
+                summary_images.append(summary_image_np)
                 iters += 1
+                if iters % cfg.TRAIN.DISPLAY_INTERVAL == 0:
+                    print('epoch {}: evaluated {}'.format(epoch, iters))
+
         except tf.errors.OutOfRangeError:
             pass
 
         avg_losses /= iters
-
         height, width = image_shape_np[1:3]
         pred_lists = []
-        for masks, cls_scores, scores, rois in pred_np_arrays:
-            for i in masks.shape[0]:
+        for masks, cls_scores, rpn_scores, rois in pred_np_arrays:
+            for i in range(masks.shape[0]):
                 train_id = np.argmax(cls_scores[i])
                 if train_id == 0:
                     # Ignore background class
@@ -236,20 +243,28 @@ class Trainer(object):
                 pred_dct = {}
                 pred_dct['imgId'] = "todo"
                 pred_dct['labelID'] = labels.trainId2label[train_id].id
-                pred_dct['conf'] = scores[i]
+                pred_dct['conf'] = rpn_scores[i, 1]
                 mask = binary_mask(rois[i, :], masks[i, :, :], height, width)
                 pred_dct['binaryMask'] = mask.astype(np.uint8)
+                pred_lists.append(pred_dct)
+
+
         cs_avgs = evaluate_cs(pred_lists)
 
+        for i, im in enumerate(summary_images):
+            tf.summary.image('cs_val_image_{}'.format(i), im, collections=['cs_val'])
+
         _summarize_value(cs_avgs['allAp'], 'Ap', 'allAp', 'cs_val')
-        _summarize_value(cs_avgs['allAp50%'], 'Ap50%', 'allAp', 'cs_val')
-        for k, v in cs_avgs["classes"]:
-            _summarize_value(v['allAp'], k, 'classAp', 'cs_val')
-            _summarize_value(v['allAp50%'], k, 'classAp50%', 'cs_val')
+        _summarize_value(cs_avgs['allAp50%'], 'Ap50', 'allAp', 'cs_val')
+
+        for k, v in cs_avgs["classes"].items():
+            _summarize_value(v['ap'], k, 'ap', 'cs_val')
+            _summarize_value(v['ap50%'], k, 'ap50', 'cs_val')
         for i, k in enumerate(net._losses.keys()):
             _summarize_value(avg_losses[i], k, 'losses', 'cs_val')
 
-        summary_op = tf.summary.merge_all(keys=['cs_val'])
+        summary_op = tf.summary.merge_all(key='cs_val')
+        sess.run(tf.global_variables_initializer())
         summary = sess.run(summary_op)
         writer.add_summary(summary, epoch)
 

@@ -14,7 +14,7 @@ def read(tfrecord_filenames, shuffle=False):
     if not isinstance(tfrecord_filenames, list):
         tfrecord_filenames = [tfrecord_filenames]
     filename_queue = tf.train.string_input_producer(
-        tfrecord_filenames, num_epochs=None, shuffle=shuffle,
+        tfrecord_filenames, num_epochs=1, shuffle=shuffle,
         capacity=len(tfrecord_filenames))
 
     options = tf.python_io.TFRecordOptions(TFRecordCompressionType.ZLIB)

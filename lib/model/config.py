@@ -74,7 +74,7 @@ __C.TRAIN.BG_THRESH_LO = 0.1
 __C.TRAIN.USE_FLIPPED = True
 
 # Train bounding-box regressors
-__C.TRAIN.BBOX_REG = True
+__C.TRAIN.BBOX_REG = True # TODO
 
 # Overlap required between a ROI and ground-truth box in order for that ROI to
 # be used as a bounding-box regression training example
@@ -130,8 +130,7 @@ __C.TRAIN.MIN_EXAMPLES_AFTER_DEQUEUE = 500
 
 # Number of examples in one epoch.
 # For cityscapes, this is the number of examples in the train split.
-# TODO this is not correct, as some examples were not created due to having no boxes
-__C.TRAIN.EXAMPLES_PER_EPOCH = 2975
+__C.TRAIN.EXAMPLES_PER_EPOCH = 2965
 
 #
 # Testing options
@@ -142,22 +141,12 @@ __C.TEST = edict()
 # The scale is the pixel size of an image's shortest side
 __C.TEST.SCALE = 1024
 
-# Max pixel size of the longest side of a scaled input image
-__C.TEST.MAX_SIZE = 1000
-
-# Overlap threshold used for non-maximum suppression (suppress boxes with
+# Overlap threshold used for non-maximum suppression of refined boxes (suppress boxes with
 # IoU >= this threshold)
-__C.TEST.NMS = 0.3
-
-# Experimental: treat the (K+1) units in the cls_logits layer as linear
-# predictors (trained, eg, with one-vs-rest SVMs).
-__C.TEST.SVM = False
+__C.TEST.NMS_THRESH = 0.3
 
 # Test using bounding-box regressors
 __C.TEST.BBOX_REG = True
-
-# Propose boxes
-__C.TEST.HAS_RPN = False
 
 # Test using these proposals
 __C.TEST.PROPOSAL_METHOD = 'gt'
@@ -168,7 +157,10 @@ __C.TEST.RPN_NMS_THRESH = 0.7
 __C.TEST.RPN_PRE_NMS_TOP_N = 6000
 
 ## Number of top scoring boxes to keep after applying NMS to RPN proposals
-__C.TEST.RPN_POST_NMS_TOP_N = 100
+__C.TEST.RPN_POST_NMS_TOP_N = 1000
+
+## Number of top scoring refined boxes to keep
+__C.TEST.POST_NMS_TOP_N = 100
 
 # Proposal height and width both need to be greater than RPN_MIN_SIZE (at orig image scale)
 # __C.TEST.RPN_MIN_SIZE = 16

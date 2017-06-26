@@ -58,6 +58,7 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, num_classes):
 
     bbox_outside_weights = np.array(bbox_inside_weights > 0).astype(np.float32)
     gt_assignment = gt_assignment.astype(np.int32)
+    print("mask_layer", rois.shape, gt_boxes.shape)
 
     return rois, roi_scores, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights, \
         gt_assignment

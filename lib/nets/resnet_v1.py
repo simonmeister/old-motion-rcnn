@@ -192,30 +192,28 @@ class resnetv1(Network):
                                              trainable=is_training,
                                              activation_fn=None, scope='bbox_pred')
 
-            if not is_training and cfg[self._mode].BBOX_REG:
-                refined_rois = self._roi_refine_layer(rois, cls_scores, bbox_pred, 'refined_rois')
-                # TODO during testing, crop refined rois + use mask_layer for NMS
-                # e.g. we pass 2000 RoIs into the bbox_pred and compute rois from them, then
-                # do NMS on these rois to go down to max. 100 detections
-                # mask_roi_crops = self._crop_rois_from_pyramid(mask_rois, pyramid, name='roi_crops')
-            else:
-                refined_rois = rois
+            if not is_training:
+                if cfg[self._mode].BBOX_REG:
+                    rois = self._roi_refine_layer(rois, cls_scores, bbox_pred,
+                                                  'refined_rois')
+                rois, roi_scores, cls_scores = self._mask_layer(rois, roi_scores, cls_scores,
+                                                                'testing_rois')
+                roi_crops = self._crop_rois_from_pyramid(rois, pyramid, name='roi_crops')
 
-
-            masks = self._mask_head(roi_crops) # mask_roi_crops
+            masks = self._mask_head(roi_crops)
 
         self._predictions['rpn_logits'] = rpn_logits
         self._predictions['rpn_scores'] = rpn_scores
         self._predictions['rpn_bbox_pred'] = rpn_bbox_pred
-        self._predictions['cls_logits'] = cls_logits
         self._predictions['cls_scores'] = cls_scores
         self._predictions['bbox_pred'] = bbox_pred
         self._predictions['rois'] = rois
         self._predictions['masks'] = masks
         self._predictions['classes'] = classes
-        #self._predictions['mask_rois'] = mask_rois
-        #self._predictions['mask_scores'] = mask_scores
-        #self._predictions['mask_cls_scores'] = mask_cls_scores
+        self._predictions['scores'] = roi_scores
+
+        if is_training:
+            self._predictions['cls_logits'] = cls_logits
 
         self._score_summaries.update(self._predictions)
 

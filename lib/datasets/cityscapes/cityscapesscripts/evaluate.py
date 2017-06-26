@@ -570,7 +570,7 @@ def evaluate_np_preds(pred_lists):
     # TODO check order/reorder using filenames and stored example ids?
 
     gt_filenames = sorted(glob.glob(args.groundTruthSearch))
-    assert len(pred_lists) == len(gt_filenames)
+    gt_filenames = gt_filenames[:len(pred_lists)]
 
     avg_dict = evaluateImgLists(pred_lists, gt_filenames, args)
     return avg_dict
