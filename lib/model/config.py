@@ -53,7 +53,7 @@ __C.TRAIN.SUMMARY_INTERVAL = 10
 # Scale to use during training
 # The scale is the pixel size of an image's shortest side
 # Can be a single number or a tuple with min/max for random scale sampling
-__C.TRAIN.SCALE = 400
+__C.TRAIN.SCALE = [800, 1024]
 
 # Minibatch size (number of regions of interest [ROIs])
 # Maximum number of rois after sampling with ground truth
@@ -108,8 +108,8 @@ __C.TRAIN.RPN_NEGATIVE_OVERLAP = 0.3
 __C.TRAIN.RPN_CLOBBER_POSITIVES = False
 # Max number of foreground examples
 __C.TRAIN.RPN_FG_FRACTION = 0.5
-# Total number of examples
-__C.TRAIN.RPN_BATCHSIZE = 256
+# Maximum number of anchor targets for rpn training
+__C.TRAIN.RPN_BATCHSIZE = 512
 # NMS threshold used on RPN proposals
 __C.TRAIN.RPN_NMS_THRESH = 0.7
 # Number of top scoring boxes to keep before apply NMS to RPN proposals

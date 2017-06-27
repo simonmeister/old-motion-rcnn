@@ -32,21 +32,19 @@ def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
         bbox_inside_weights: weights for positive bboxes (else 0)
         bbox_outside_weights: weights for negative bboxes (else 0)
     """
-    A = num_anchors
     total_anchors = all_anchors.shape[0]
-    K = total_anchors / num_anchors
 
     # allow boxes to sit over the edge by a small amount
-    # _allowed_border = 0
+    #_allowed_border = 0
 
-    # TODO add again if it's a problem.
-    # inds_inside = np.where(
-    #     (all_anchors[:, 0] >= -_allowed_border) &
-    #     (all_anchors[:, 1] >= -_allowed_border) &
-    #     (all_anchors[:, 2] < im_size[1] + _allowed_border) &  # width
-    #     (all_anchors[:, 3] < im_size[0] + _allowed_border)  # height
-    # )[0]
-    inds_inside = np.arange(A)
+    # TODO can we remove this?
+    #inds_inside = np.where(
+    #    (all_anchors[:, 0] >= -_allowed_border) &
+    #    (all_anchors[:, 1] >= -_allowed_border) &
+    #    (all_anchors[:, 2] < im_size[1] + _allowed_border) &  # width
+    #    (all_anchors[:, 3] < im_size[0] + _allowed_border)  # height
+    #)[0]
+    inds_inside = np.arange(total_anchors)
 
     # keep only inside anchors
     anchors = all_anchors[inds_inside, :]

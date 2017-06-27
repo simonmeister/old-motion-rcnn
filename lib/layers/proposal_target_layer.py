@@ -58,7 +58,6 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, num_classes):
 
     bbox_outside_weights = np.array(bbox_inside_weights > 0).astype(np.float32)
     gt_assignment = gt_assignment.astype(np.int32)
-    print("mask_layer", rois.shape, gt_boxes.shape)
 
     return rois, roi_scores, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights, \
         gt_assignment
@@ -121,8 +120,12 @@ def _sample_rois(all_rois, all_scores, gt_boxes, fg_rois_per_image, rois_per_ima
     fg_inds = np.where(max_overlaps >= cfg.TRAIN.FG_THRESH)[0]
     # Guard against the case when an image has fewer than fg_rois_per_image
     # Select background RoIs as those within [BG_THRESH_LO, BG_THRESH_HI)
-    bg_inds = np.where((max_overlaps < cfg.TRAIN.BG_THRESH_HI) &
-                       (max_overlaps >= cfg.TRAIN.BG_THRESH_LO))[0]
+    bg_inds = np.where((max_overlaps >= cfg.TRAIN.BG_THRESH_LO))[0]
+    # TODO this is a problem with cityscapes smaller amounts of boxes for some images
+    # (max_overlaps < cfg.TRAIN.BG_THRESH_HI) &
+
+    #import pdb; pdb.set_trace()
+    print(len(fg_inds), len(bg_inds))
 
     # TODO try this out later
     # Small modification to the original version where we ensure a fixed number of regions are sampled

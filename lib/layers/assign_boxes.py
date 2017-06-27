@@ -29,5 +29,3 @@ def assign_boxes(boxes, min_k=2, max_k=5):
     inds = np.where(k > max_k)[0]
     k[inds] = max_k
     return k
-
-# TODO write assign boxes in tf??

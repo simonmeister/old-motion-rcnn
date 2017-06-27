@@ -10,7 +10,7 @@ import tensorflow.contrib.slim as slim
 from tensorflow.contrib.slim import losses
 from tensorflow.contrib.slim import arg_scope
 from tensorflow.contrib.slim.python.slim.nets import resnet_utils
-from tensorflow.contrib.slim.python.slim.nets import resnet_v1
+from tensorflow.contrib.slim.python.slim.nets.resnet_v1 import resnet_v1, bottleneck
 import numpy as np
 
 from nets.network import Network
@@ -21,8 +21,6 @@ from tensorflow.contrib.layers.python.layers import initializers
 from tensorflow.contrib.layers.python.layers import layers
 from model.config import cfg
 
-
-# TODO generate anchors ONCE
 
 def resnet_arg_scope(is_training=True,
                      weight_decay=cfg.TRAIN.WEIGHT_DECAY,
@@ -52,7 +50,55 @@ def resnet_arg_scope(is_training=True,
             return arg_sc
 
 
-# TODO reshape to nchw and reshape back afterwards for network processing
+def resnet_v1_block(scope, base_depth, num_units, stride):
+  """Helper function for creating a resnet_v1 bottleneck block.
+  Args:
+    scope: The scope of the block.
+    base_depth: The depth of the bottleneck layer for each unit.
+    num_units: The number of units in the block.
+    stride: The stride of the block, implemented as a stride in the last unit.
+      All other units have stride=1.
+  Returns:
+    A resnet_v1 bottleneck block.
+  """
+  return resnet_utils.Block(scope, bottleneck, [{
+      'depth': base_depth * 4,
+      'depth_bottleneck': base_depth,
+      'stride': stride
+  }] + [{
+      'depth': base_depth * 4,
+      'depth_bottleneck': base_depth,
+      'stride': 1
+  }] * (num_units - 1))
+
+
+# TODO re-do resnet pre-training
+# TODO https://github.com/tensorflow/tensorflow/blob/master/tensorflow/contrib/slim/python/slim/nets/resnet_v1.py#L119
+# stride should be at first layer - saves memory
+def resnet_v1_50(inputs,
+                 num_classes=None,
+                 is_training=None,
+                 global_pool=True,
+                 output_stride=None,
+                 reuse=None,
+                 scope='resnet_v1_50'):
+  """ResNet-50 model of [1]. See resnet_v1() for arg and return description."""
+  blocks = [
+      resnet_v1_block('block1', base_depth=64, num_units=3, stride=2),
+      resnet_v1_block('block2', base_depth=128, num_units=4, stride=2),
+      resnet_v1_block('block3', base_depth=256, num_units=6, stride=2),
+      resnet_v1_block('block4', base_depth=512, num_units=3, stride=2),
+  ]
+  return resnet_v1(
+      inputs,
+      blocks,
+      num_classes,
+      is_training,
+      global_pool,
+      output_stride,
+      include_root_block=True,
+      reuse=reuse,
+      scope=scope)
 
 
 class resnetv1(Network):
@@ -65,8 +111,8 @@ class resnetv1(Network):
         with tf.variable_scope('pyramid'):
             C5 = end_points[end_points_map['C5']]
             P5 = slim.conv2d(C5, 256, [1, 1], stride=1, scope='P5')
-            P6 = P5[:, :2:, :2:, :]
-            pyramid = [P5] # P6,
+            P6 = P5[:, ::2, ::2, :]
+            pyramid = [P6, P5]
 
             for c in range(4, 1, -1):
                 this_C = end_points[end_points_map['C{}'.format(c)]]
@@ -119,7 +165,7 @@ class resnetv1(Network):
                 'C4': 'resnet_v1_50/block3/unit_6/bottleneck_v1',
                 'C5': 'resnet_v1_50/block4/unit_3/bottleneck_v1',
             }
-            net_conv4, end_points = resnet_v1.resnet_v1_50(
+            net_conv4, end_points = resnet_v1_50(
                 self._image,
                 scope=self._resnet_scope,
                 global_pool=False)

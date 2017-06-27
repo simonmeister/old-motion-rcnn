@@ -28,7 +28,7 @@ from model.config import cfg
 class Network(object):
     def __init__(self, input_batch, is_training, num_classes):
         self._pyramid_strides = [4, 8, 16, 32, 64]
-        self._pyramid_indices = [2, 3, 4, 5] # , 6
+        self._pyramid_indices = [2, 3, 4, 5, 6]
         self._batch_size = 1
         self._predictions = {}
         self._losses = {}
