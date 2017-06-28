@@ -287,15 +287,32 @@ class Network(object):
 
     def _smooth_l1_loss(self, bbox_pred, bbox_targets, bbox_inside_weights, bbox_outside_weights,
                         sigma=1.0, dim=[1]):
+        """Computes smooth l1 loss between bbox_pred and bbox_targets.
+
+        There are two types of usage:
+
+        1. All examples are weighted the same, there are no ignored terms:
+            - bbox_inside_weights is 0 at negative examples, a positive constant otherwise
+            - bbox_outside_weights is 0 at negative examples, 1 otherwise
+                => all diffs are averaged and thus negative examples contribute to the loss
+                via the normalization
+            - dim should be [1] so that we sum over 4 target numbers but average over examples
+
+        2. Manual weighting and support for ignored terms:
+            - bbox_inside_weights is zero at negative and ignored examples, a positive constant otherwise
+            - bbox_outside_weights is zero at ignored examples and non-zero otherwise
+                => used to scale losses before summing them up. E.g. for uniform weighting of
+                pos. and neg., set bbox_outside_weights to 1 / num_non_ignored at non-ignored examples.
+            - dim should include all axes along which to sum
+        """
         sigma_2 = sigma ** 2
         box_diff = bbox_pred - bbox_targets
-        # set diffs of all ignored examples to 0
         in_box_diff = bbox_inside_weights * box_diff
         abs_in_box_diff = tf.abs(in_box_diff)
-        smoothL1_sign = tf.stop_gradient(tf.to_float(tf.less(abs_in_box_diff, 1. / sigma_2)))
+        #smoothL1_sign = tf.stop_gradient(tf.to_float(tf.less(abs_in_box_diff, 1. / sigma_2)))
+        smoothL1_sign = tf.to_float(tf.less(abs_in_box_diff, 1. / sigma_2))
         in_loss_box = tf.pow(in_box_diff, 2) * (sigma_2 / 2.) * smoothL1_sign \
-                      + (abs_in_box_diff - (0.5 / sigma_2)) * (1. - smoothL1_sign)
-        # weight all non-ignored examples
+                        + (abs_in_box_diff - (0.5 / sigma_2)) * (1. - smoothL1_sign)
         out_loss_box = bbox_outside_weights * in_loss_box
         loss_box = tf.reduce_mean(tf.reduce_sum(
             out_loss_box,
@@ -322,7 +339,7 @@ class Network(object):
             rpn_bbox_outside_weights = self._anchor_targets['rpn_bbox_outside_weights']
             rpn_loss_box = self._smooth_l1_loss(rpn_bbox_pred, rpn_bbox_targets,
                                                 rpn_bbox_inside_weights, rpn_bbox_outside_weights,
-                                                sigma=sigma_rpn)
+                                                sigma=sigma_rpn, dim=[0, 1])
 
             # RCNN, class loss
             cls_logits = self._predictions['cls_logits']
@@ -337,7 +354,8 @@ class Network(object):
             bbox_inside_weights = self._proposal_targets['bbox_inside_weights']
             bbox_outside_weights = self._proposal_targets['bbox_outside_weights']
             loss_box = self._smooth_l1_loss(bbox_pred, bbox_targets,
-                                            bbox_inside_weights, bbox_outside_weights)
+                                            bbox_inside_weights, bbox_outside_weights,
+                                            dim=[1])
 
             # RCNN, mask loss
             mask_targets = self._proposal_targets['mask_targets']

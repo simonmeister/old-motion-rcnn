@@ -109,6 +109,7 @@ def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
         positive_weights = np.ones((1, 4)) * 1.0 / num_examples
         negative_weights = np.ones((1, 4)) * 1.0 / num_examples
     else:
+        # TODO for this to work, we need to modify Network._smooth_l1_loss
         assert ((cfg.TRAIN.RPN_POSITIVE_WEIGHT > 0) &
                 (cfg.TRAIN.RPN_POSITIVE_WEIGHT < 1))
         positive_weights = (cfg.TRAIN.RPN_POSITIVE_WEIGHT /

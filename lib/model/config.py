@@ -21,7 +21,7 @@ __C.TRAIN = edict()
 
 # Training schedule
 __C.TRAIN.LEARNING_RATES = [0.001]
-__C.TRAIN.EPOCHS = [1]
+__C.TRAIN.EPOCHS = [100]
 
 # Momentum
 __C.TRAIN.MOMENTUM = 0.9
@@ -82,12 +82,12 @@ __C.TRAIN.BBOX_THRESH = 0.5
 
 
 # Normalize the targets (subtract empirical mean, divide by empirical stddev)
-__C.TRAIN.BBOX_NORMALIZE_TARGETS = True
+__C.TRAIN.BBOX_NORMALIZE_TARGETS = False
 # Deprecated (inside weights)
 __C.TRAIN.BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
 # Normalize the targets using "precomputed" (or made up) means and stdevs
 # (BBOX_NORMALIZE_TARGETS must also be True)
-__C.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED = True
+__C.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED = False
 __C.TRAIN.BBOX_NORMALIZE_MEANS = (0.0, 0.0, 0.0, 0.0)
 __C.TRAIN.BBOX_NORMALIZE_STDS = (0.1, 0.1, 0.2, 0.2)
 
@@ -104,13 +104,13 @@ __C.TRAIN.RPN_CLOBBER_POSITIVES = False
 # Max number of foreground examples
 __C.TRAIN.RPN_FG_FRACTION = 0.5
 # Maximum number of anchor targets for rpn training
-__C.TRAIN.RPN_BATCHSIZE = 512
+__C.TRAIN.RPN_BATCHSIZE = 256
 # NMS threshold used on RPN proposals
 __C.TRAIN.RPN_NMS_THRESH = 0.7
 # Number of top scoring boxes to keep before apply NMS to RPN proposals
-__C.TRAIN.RPN_PRE_NMS_TOP_N = 48000 # 12000
+__C.TRAIN.RPN_PRE_NMS_TOP_N = 12000 # 12000
 # Number of top scoring boxes to keep after applying NMS to RPN proposals
-__C.TRAIN.RPN_POST_NMS_TOP_N = 8000 # 2000
+__C.TRAIN.RPN_POST_NMS_TOP_N = 2000 # 2000
 # Proposal height and width both need to be greater than RPN_MIN_SIZE (at orig image scale)
 # __C.TRAIN.RPN_MIN_SIZE = 16
 # Deprecated (outside weights)

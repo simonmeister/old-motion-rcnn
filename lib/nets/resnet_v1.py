@@ -179,7 +179,6 @@ class resnetv1(Network):
                                       scope='rpn')
 
                     rpn_logits = slim.conv2d(rpn, self._num_anchors * 2, [1, 1],
-                                             trainable=is_training,
                                              weights_initializer=initializer,
                                              padding='VALID',
                                              activation_fn=None,
@@ -189,7 +188,6 @@ class resnetv1(Network):
                     rpn_scores = tf.nn.softmax(rpn_logits, dim=1, name='rpn_scores')
 
                     rpn_bbox_pred = slim.conv2d(rpn, self._num_anchors * 4, [1, 1],
-                                                trainable=is_training,
                                                 weights_initializer=initializer,
                                                 padding='VALID',
                                                 activation_fn=None,
@@ -225,7 +223,6 @@ class resnetv1(Network):
 
             cls_logits = slim.fully_connected(fc_roi_features, self._num_classes,
                                              weights_initializer=initializer,
-                                             trainable=is_training,
                                              activation_fn=None,
                                              scope='cls_logits')
             cls_scores = tf.nn.softmax(cls_logits, dim=1, name='cls_scores')
@@ -234,7 +231,6 @@ class resnetv1(Network):
             bbox_pred = slim.fully_connected(fc_roi_features,
                                              self._num_classes * 4,
                                              weights_initializer=initializer_bbox,
-                                             trainable=is_training,
                                              activation_fn=None, scope='bbox_pred')
 
             if not is_training:
