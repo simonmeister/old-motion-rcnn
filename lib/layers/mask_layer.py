@@ -11,7 +11,7 @@ from utils.nms_wrapper import nms
 from model.config import cfg
 
 
-def mask_layer(rois, roi_scores, cls_scores, cfg_key):
+def mask_layer(rois, roi_scores, cls_scores, cfg_key): # TODO rename this layer
     """Returns (score-ordered) rois and scores for mask_branch.
 
     Note that one ground truth box can be assigned to multiple rois.

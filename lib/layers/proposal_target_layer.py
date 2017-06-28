@@ -2,7 +2,7 @@
 # Faster R-CNN
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Ross Girshick, Sean Bell, Xinlei Chen and Simon Meister
+# Written by Ross Girshick, Sean Bell and Simon Meister
 # --------------------------------------------------------
 from __future__ import absolute_import
 from __future__ import division
@@ -33,6 +33,7 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, num_classes):
         bbox_targets: (T, 4) bbox regression targets, rows zero for t with labels[t] == 0
         bbox_inside_weights: (T, 4), weight for bbox target diffs (0 for unused entries)
         bbox_outside_weights: (T,), binary validity mask for bbox targets
+        gt_assignments: (T,), batch ids of assigned ground truth boxes for each roi
     """
     all_rois = rpn_rois
     all_scores = rpn_scores
@@ -40,11 +41,11 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, num_classes):
     # Include ground-truth boxes in the set of candidate rois
     if cfg.TRAIN.USE_GT:
         zeros = np.zeros((gt_boxes.shape[0], 1), dtype=gt_boxes.dtype)
+        ones = np.ones((gt_boxes.shape[0], 1), dtype=gt_boxes.dtype)
         all_rois = np.vstack(
             (all_rois, np.hstack((zeros, gt_boxes[:, :-1])))
         )
-        # not sure if it a wise appending, but anyway i am not using it
-        all_scores = np.vstack((all_scores, zeros)) # TODO shouldn't it be ones?
+        all_scores = np.vstack((all_scores, ones))
 
     num_images = 1
     rois_per_image = cfg.TRAIN.MAX_SAMPLED_ROIS / num_images
@@ -120,36 +121,9 @@ def _sample_rois(all_rois, all_scores, gt_boxes, fg_rois_per_image, rois_per_ima
     fg_inds = np.where(max_overlaps >= cfg.TRAIN.FG_THRESH)[0]
     # Guard against the case when an image has fewer than fg_rois_per_image
     # Select background RoIs as those within [BG_THRESH_LO, BG_THRESH_HI)
-    bg_inds = np.where((max_overlaps >= cfg.TRAIN.BG_THRESH_LO))[0]
-    # TODO this is a problem with cityscapes smaller amounts of boxes for some images
-    # (max_overlaps < cfg.TRAIN.BG_THRESH_HI) &
+    bg_inds = np.where((max_overlaps < cfg.TRAIN.BG_THRESH_HI) &
+                       (max_overlaps >= cfg.TRAIN.BG_THRESH_LO))[0]
 
-    #import pdb; pdb.set_trace()
-    print(len(fg_inds), len(bg_inds))
-
-    # TODO try this out later
-    # Small modification to the original version where we ensure a fixed number of regions are sampled
-    # Maybe use original implementation from py-faster-rcnn here...
-    # if fg_inds.size > 0 and bg_inds.size > 0:
-    #     fg_rois_per_image = min(fg_rois_per_image, fg_inds.size)
-    #     fg_inds = npr.choice(fg_inds, size=int(fg_rois_per_image), replace=False)
-    #     bg_rois_per_image = rois_per_image - fg_rois_per_image
-    #     to_replace = bg_inds.size < bg_rois_per_image
-    #     bg_inds = npr.choice(bg_inds, size=int(bg_rois_per_image), replace=to_replace)
-    # elif fg_inds.size > 0:
-    #     to_replace = fg_inds.size < rois_per_image
-    #     fg_inds = npr.choice(fg_inds, size=int(rois_per_image), replace=to_replace)
-    #     fg_rois_per_image = rois_per_image
-    # elif bg_inds.size > 0:
-    #     to_replace = bg_inds.size < rois_per_image
-    #     bg_inds = npr.choice(bg_inds, size=int(rois_per_image), replace=to_replace)
-    #     fg_rois_per_image = 0
-    # else:
-    #     import pdb
-    #     pdb.set_trace()
-
-    # Select foreground RoIs as those with >= FG_THRESH overlap
-    fg_inds = np.where(max_overlaps >= cfg.TRAIN.FG_THRESH)[0]
     # Guard against the case when an image has fewer than fg_rois_per_image
     # foreground RoIs
     fg_rois_per_this_image = min(fg_rois_per_image, fg_inds.size)

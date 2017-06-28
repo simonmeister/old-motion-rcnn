@@ -41,14 +41,15 @@ def instange_image(rois, mask_preds, height, width):
     return mask
 
 
-def binary_mask(roi, mask, height, width):
-    full_size = np.zeros((height, width), dtype=np.float32)
-    h = box[4] - box[2] + 1 # TODO round and cast to int
-    w = box[3] - box[1] + 1
-    x = box[1]
-    y = box[2]
-    m = cv2.resize(mask, (w, h), interpolation=cv2.INTER_LINEAR)
-    mask[y:(y + h), x:(x + w)] = 1
+def binary_mask(roi, mask_pred, height, width):
+    out = np.zeros((height, width), dtype=np.float32)
+    h = int(roi[4] - roi[2] + 1)
+    w = int(roi[3] - roi[1] + 1)
+    x = int(roi[1])
+    y = int(roi[2])
+    mask = cv2.resize(mask_pred, (w, h), interpolation=cv2.INTER_LINEAR)
+    out[y:(y + h), x:(x + w)] = mask
+    return out
 
 
 def color_mask(rois, classes, mask_preds, height, width):

@@ -289,11 +289,13 @@ class Network(object):
                         sigma=1.0, dim=[1]):
         sigma_2 = sigma ** 2
         box_diff = bbox_pred - bbox_targets
+        # set diffs of all ignored examples to 0
         in_box_diff = bbox_inside_weights * box_diff
         abs_in_box_diff = tf.abs(in_box_diff)
         smoothL1_sign = tf.stop_gradient(tf.to_float(tf.less(abs_in_box_diff, 1. / sigma_2)))
         in_loss_box = tf.pow(in_box_diff, 2) * (sigma_2 / 2.) * smoothL1_sign \
                       + (abs_in_box_diff - (0.5 / sigma_2)) * (1. - smoothL1_sign)
+        # weight all non-ignored examples
         out_loss_box = bbox_outside_weights * in_loss_box
         loss_box = tf.reduce_mean(tf.reduce_sum(
             out_loss_box,
@@ -305,13 +307,13 @@ class Network(object):
         with tf.variable_scope('loss') as scope:
             # RPN, class loss
             rpn_logits = self._predictions['rpn_logits']
-            rpn_label = self._anchor_targets['rpn_labels']
-            rpn_select = tf.where(tf.not_equal(rpn_label, -1))
+            rpn_labels = self._anchor_targets['rpn_labels']
+            rpn_select = tf.where(tf.not_equal(rpn_labels, -1))
             rpn_logits = tf.gather(rpn_logits, rpn_select)
-            rpn_label = tf.gather(rpn_label, rpn_select)
+            rpn_labels = tf.gather(rpn_labels, rpn_select)
             rpn_cross_entropy = tf.reduce_mean(
                 tf.nn.sparse_softmax_cross_entropy_with_logits(
-                    logits=rpn_logits, labels=rpn_label))
+                    logits=rpn_logits, labels=rpn_labels))
 
             # RPN, bbox loss
             rpn_bbox_pred = self._predictions['rpn_bbox_pred']
@@ -320,7 +322,7 @@ class Network(object):
             rpn_bbox_outside_weights = self._anchor_targets['rpn_bbox_outside_weights']
             rpn_loss_box = self._smooth_l1_loss(rpn_bbox_pred, rpn_bbox_targets,
                                                 rpn_bbox_inside_weights, rpn_bbox_outside_weights,
-                                                sigma=sigma_rpn, dim=[1])
+                                                sigma=sigma_rpn)
 
             # RCNN, class loss
             cls_logits = self._predictions['cls_logits']
@@ -339,10 +341,10 @@ class Network(object):
 
             # RCNN, mask loss
             mask_targets = self._proposal_targets['mask_targets']
-            masks = self._predictions['masks']
+            mask_logits = self._predictions['mask_logits']
             loss_mask = tf.reduce_mean(
                 tf.nn.sigmoid_cross_entropy_with_logits(
-                    labels=mask_targets, logits=masks))
+                    labels=mask_targets, logits=mask_logits))
 
             self._losses['cross_entropy'] = cross_entropy
             self._losses['loss_box'] = loss_box

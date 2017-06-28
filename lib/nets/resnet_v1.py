@@ -29,7 +29,7 @@ def resnet_arg_scope(is_training=True,
                      batch_norm_scale=True):
     batch_norm_params = {
         # NOTE 'is_training' here does not work because inside resnet it gets reset:
-        # https://github.com/tensorflow/models/blob/master/slim/nets/resnet_v1.py#L187
+        # https://github.com/tensorflow/models/blob/master/slim/nets/resnet_v1.py#L187 #TODO understand
         'is_training': False,
         'decay': batch_norm_decay,
         'epsilon': batch_norm_epsilon,
@@ -72,15 +72,10 @@ def resnet_v1_block(scope, base_depth, num_units, stride):
   }] * (num_units - 1))
 
 
-# TODO re-do resnet pre-training
 # TODO https://github.com/tensorflow/tensorflow/blob/master/tensorflow/contrib/slim/python/slim/nets/resnet_v1.py#L119
-# stride should be at first layer - saves memory
+# stride should be at first layer to save some memory
 def resnet_v1_50(inputs,
-                 num_classes=None,
                  is_training=None,
-                 global_pool=True,
-                 output_stride=None,
-                 reuse=None,
                  scope='resnet_v1_50'):
   """ResNet-50 model of [1]. See resnet_v1() for arg and return description."""
   blocks = [
@@ -92,12 +87,10 @@ def resnet_v1_50(inputs,
   return resnet_v1(
       inputs,
       blocks,
-      num_classes,
-      is_training,
-      global_pool,
-      output_stride,
+      num_classes=None,
+      is_training=is_training,
+      global_pool=False,
       include_root_block=True,
-      reuse=reuse,
       scope=scope)
 
 
@@ -106,7 +99,13 @@ class resnetv1(Network):
         self._resnet_scope = 'resnet_v1_50'
         Network.__init__(self, *args, **kwargs)
 
-    def _build_pyramid(self, end_points, end_points_map):
+    def _build_pyramid(self, end_points):
+        end_points_map = {
+            'C2': 'resnet_v1_50/block1/unit_3/bottleneck_v1',
+            'C3': 'resnet_v1_50/block2/unit_4/bottleneck_v1',
+            'C4': 'resnet_v1_50/block3/unit_6/bottleneck_v1',
+            'C5': 'resnet_v1_50/block4/unit_3/bottleneck_v1',
+        }
         pyramid = []
         with tf.variable_scope('pyramid'):
             C5 = end_points[end_points_map['C5']]
@@ -159,17 +158,11 @@ class resnetv1(Network):
             initializer_bbox = tf.random_normal_initializer(mean=0.0, stddev=0.001)
 
         with slim.arg_scope(resnet_arg_scope(is_training=is_training)):
-            end_points_map = {
-                'C2': 'resnet_v1_50/block1/unit_3/bottleneck_v1',
-                'C3': 'resnet_v1_50/block2/unit_4/bottleneck_v1',
-                'C4': 'resnet_v1_50/block3/unit_6/bottleneck_v1',
-                'C5': 'resnet_v1_50/block4/unit_3/bottleneck_v1',
-            }
             net_conv4, end_points = resnet_v1_50(
                 self._image,
-                scope=self._resnet_scope,
-                global_pool=False)
-            pyramid = self._build_pyramid(end_points, end_points_map)
+                is_training=is_training,
+                scope=self._resnet_scope)
+            pyramid = self._build_pyramid(end_points)
 
         self._act_summaries.append(net_conv4)
         with tf.variable_scope('RCNN'):
@@ -180,14 +173,17 @@ class resnetv1(Network):
             for i, level in enumerate(pyramid):
                 level_name = 'P{}'.format(self._pyramid_indices[i])
                 with tf.variable_scope(level_name):
-                    rpn = slim.conv2d(level, 512, [3, 3],
+                    rpn = slim.conv2d(level, 256, [3, 3],
                                       trainable=is_training,
-                                      weights_initializer=initializer, scope='rpn')
+                                      weights_initializer=initializer,
+                                      scope='rpn')
 
                     rpn_logits = slim.conv2d(rpn, self._num_anchors * 2, [1, 1],
                                              trainable=is_training,
                                              weights_initializer=initializer,
-                                             padding='VALID', activation_fn=None, scope='rpn_logits')
+                                             padding='VALID',
+                                             activation_fn=None,
+                                             scope='rpn_logits')
 
                     rpn_logits = tf.reshape(rpn_logits, [-1, 2])
                     rpn_scores = tf.nn.softmax(rpn_logits, dim=1, name='rpn_scores')
@@ -195,14 +191,16 @@ class resnetv1(Network):
                     rpn_bbox_pred = slim.conv2d(rpn, self._num_anchors * 4, [1, 1],
                                                 trainable=is_training,
                                                 weights_initializer=initializer,
-                                                padding='VALID', activation_fn=None, scope='rpn_bbox_pred')
+                                                padding='VALID',
+                                                activation_fn=None,
+                                                scope='rpn_bbox_pred')
 
                     rpn_bbox_pred = tf.reshape(rpn_bbox_pred, [-1, 4])
 
                 self._act_summaries.append(rpn)
                 level_outputs.append((rpn_logits, rpn_scores, rpn_bbox_pred))
 
-            # Flattened per-anchor tensors
+            # flattened per-anchor tensors
             rpn_logits, rpn_scores, rpn_bbox_pred = [
                 tf.concat(o, axis=0) for o in zip(*level_outputs)]
 
@@ -211,7 +209,8 @@ class resnetv1(Network):
                 rpn_labels = self._anchor_target_layer('anchor')
                 # Try to have a determinestic order for the computing graph, for reproducibility
                 with tf.control_dependencies([rpn_labels]):
-                    rois, _ = self._proposal_target_layer(rois, roi_scores, 'rpn_rois')
+                    rois, roi_scores = self._proposal_target_layer(rois, roi_scores, 'rpn_rois')
+                # roi_scores is now a single number (the positive score after softmax)
             else:
                 if cfg.TEST.MODE == 'nms':
                     rois, roi_scores = self._proposal_layer(rpn_scores, rpn_bbox_pred, 'rois')
@@ -246,7 +245,9 @@ class resnetv1(Network):
                                                                 'testing_rois')
                 roi_crops = self._crop_rois_from_pyramid(rois, pyramid, name='roi_crops')
 
-            masks = self._mask_head(roi_crops)
+            mask_logits = self._mask_head(roi_crops)
+            mask_scores = tf.sigmoid(mask_logits, name='mask_scores')
+            masks = tf.to_float(mask_scores >= 0.5, name='masks')
 
         self._predictions['rpn_logits'] = rpn_logits
         self._predictions['rpn_scores'] = rpn_scores
@@ -254,6 +255,8 @@ class resnetv1(Network):
         self._predictions['cls_scores'] = cls_scores
         self._predictions['bbox_pred'] = bbox_pred
         self._predictions['rois'] = rois
+        self._predictions['mask_logits'] = mask_logits
+        self._predictions['mask_scores'] = masks
         self._predictions['masks'] = masks
         self._predictions['classes'] = classes
         self._predictions['scores'] = roi_scores

@@ -29,8 +29,8 @@ def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
     Returns:
         labels: (A,), -1 for ignore, 0 for negative and 1 for positive example
         bbox_targets: (A, 4)
-        bbox_inside_weights: weights for positive bboxes (else 0)
-        bbox_outside_weights: weights for negative bboxes (else 0)
+        bbox_inside_weights: (A, 4), row zero if label == -1 (no example), else one
+        bbox_outside_weights: (A, 4), contribution of each example row to final loss (0 if ignore)
     """
     total_anchors = all_anchors.shape[0]
 
@@ -49,12 +49,11 @@ def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
     # keep only inside anchors
     anchors = all_anchors[inds_inside, :]
 
-    # label: 1 is positive, 0 is negative, -1 is dont care
+    # label: 1 is positive, 0 is negative, -1 is don't care
     labels = np.empty((len(inds_inside),), dtype=np.float32)
     labels.fill(-1)
 
-    # overlaps between the anchors and the gt boxes
-    # overlaps (ex, gt)
+    # overlaps between the anchors and the gt boxes, (A, G)
     overlaps = bbox_overlaps(
         np.ascontiguousarray(anchors, dtype=np.float),
         np.ascontiguousarray(gt_boxes[:4], dtype=np.float))

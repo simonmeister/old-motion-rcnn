@@ -17,6 +17,7 @@ from tensorflow.contrib import slim
 from model.config import cfg
 from utils.timer import Timer
 from datasets.cityscapes.cityscapesscripts.evaluate import evaluate_np_preds as evaluate_cs
+import datasets.cityscapes.cityscapesscripts.labels as labels
 from layers.mask_util import binary_mask
 
 
@@ -38,11 +39,12 @@ class Trainer(object):
             os.makedirs(self.ckpt_dir)
         self.pretrained_model = pretrained_model
 
-    def train_val(self, schedule):
+    def train_val(self, schedule, val=True):
         for epochs, learning_rate in schedule:
             for epoch in range(epochs):
                 self.train_epoch(learning_rate)
-                self.evaluate()
+                if val:
+                    self.evaluate()
 
     def train_epoch(self, learning_rate):
         with tf.Graph().as_default():
@@ -207,7 +209,7 @@ class Trainer(object):
         pred_np_arrays = []
         summary_images = []
         try:
-            while not coord.should_stop():
+            while iters<10:
                 loss_ops = [v for (k, v) in net._losses]
                 pred_ops = [
                     net._predictions['masks'],
@@ -225,8 +227,10 @@ class Trainer(object):
                 pred_np_arrays.append(pred_results)
                 summary_images.append(summary_image_np)
                 iters += 1
-                if iters % cfg.TRAIN.DISPLAY_INTERVAL == 0:
-                    print('epoch {}: evaluated {}'.format(epoch, iters))
+
+                print("\rPredicted: {}".format(iters), end=' ')
+                sys.stdout.flush()
+            print('')
 
         except tf.errors.OutOfRangeError:
             pass
@@ -235,6 +239,7 @@ class Trainer(object):
         height, width = image_shape_np[1:3]
         pred_lists = []
         for masks, cls_scores, rpn_scores, rois in pred_np_arrays:
+            preds = []
             for i in range(masks.shape[0]):
                 train_id = np.argmax(cls_scores[i])
                 if train_id == 0:
@@ -243,15 +248,16 @@ class Trainer(object):
                 pred_dct = {}
                 pred_dct['imgId'] = "todo"
                 pred_dct['labelID'] = labels.trainId2label[train_id].id
-                pred_dct['conf'] = rpn_scores[i, 1]
+                pred_dct['conf'] = rpn_scores[i]
                 mask = binary_mask(rois[i, :], masks[i, :, :], height, width)
                 pred_dct['binaryMask'] = mask.astype(np.uint8)
-                pred_lists.append(pred_dct)
+                preds.append(pred_dct)
+            pred_lists.append(preds)
 
 
         cs_avgs = evaluate_cs(pred_lists)
-
-        for i, im in enumerate(summary_images):
+        max_images = min(len(summary_images), cfg.TEST.MAX_SUMMARY_IMAGES)
+        for i, im in enumerate(summary_images[:max_images]):
             tf.summary.image('cs_val_image_{}'.format(i), im, collections=['cs_val'])
 
         _summarize_value(cs_avgs['allAp'], 'Ap', 'allAp', 'cs_val')

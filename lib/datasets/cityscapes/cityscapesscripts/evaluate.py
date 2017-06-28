@@ -51,7 +51,9 @@ args.distanceThs        = np.array( [  float('inf') , 100 , 50 ] )
 # distance confidences
 args.distanceConfs      = np.array( [ -float('inf') , 0.5 , 0.5 ] )
 
-args.gtInstancesFile    = os.path.join(os.path.dirname(os.path.realpath(__file__)),'gtInstances.json')
+args.gtInstancesFile    = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                       '../', '../', '../', '../', 'output',
+                                       'gtInstances.json')
 args.distanceAvailable  = False
 args.JSONOutput         = False
 args.quiet              = False
@@ -543,7 +545,7 @@ def evaluateImgLists(predictionList, groundTruthList, args):
     gtInstances = getGtInstances(groundTruthList,args)
     # match predictions and ground truth
     matches = matchGtWithPreds(predictionList,groundTruthList,gtInstances,args)
-    writeDict2JSON(matches,"matches.json")
+    # writeDict2JSON(matches,"matches.json")
     # evaluate matches
     apScores = evaluateMatches(matches, args)
     # averages

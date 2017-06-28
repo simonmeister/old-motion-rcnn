@@ -36,15 +36,15 @@ def parse_args():
     parser.add_argument('--ex', dest='experiment_name',
                         help='name of experiment',
                         default='default', type=str)
-    parser.add_argument('--no-ow', dest='overwrite',
+    parser.add_argument('--ow', dest='overwrite',
                         help='overwrite experiment',
-                        action='store_false')
+                        action='store_true')
     parser.add_argument('--gpu', dest='gpu',
                         help='gpu id to train on',
                         default='0', type=str)
-    #parser.add_argument('--net', dest='net',
-    #                  help='backbone network',
-    #                  default='res50', type=str)
+    parser.add_argument('--mode', dest='mode', # TODO
+                        help='one of (train, val, trainval)',
+                        default='trainval', type=str)
     parser.add_argument('--set', dest='set_cfgs',
                       help='set config keys', default=None,
                       nargs=argparse.REMAINDER)
@@ -104,4 +104,10 @@ if __name__ == '__main__':
     trainer = Trainer(resnetv1, dataset,
                       pretrained_model='data/models/resnet_v1_50.ckpt',
                       ckpt_dir=ckpt_dir, tbdir=log_dir)
-    trainer.train_val(zip(cfg.TRAIN.EPOCHS, cfg.TRAIN.LEARNING_RATES))
+    if args.mode in ['trainval', 'train']:
+        trainer.train_val(zip(cfg.TRAIN.EPOCHS, cfg.TRAIN.LEARNING_RATES),
+                          val=args.mode == 'trainval')
+    elif args.mode == 'val':
+        trainer.evaluate()
+    else:
+        raise NotImplementedError("--mode must be one of (trainval, train, val)")
