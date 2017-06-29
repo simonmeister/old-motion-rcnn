@@ -52,7 +52,7 @@ args.distanceThs        = np.array( [  float('inf') , 100 , 50 ] )
 args.distanceConfs      = np.array( [ -float('inf') , 0.5 , 0.5 ] )
 
 args.gtInstancesFile    = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                       '../', '../', '../', '../', 'output',
+                                       '../', '../', '../', '../', 'out',
                                        'gtInstances.json')
 args.distanceAvailable  = False
 args.JSONOutput         = False

@@ -194,9 +194,9 @@ __C.EPS = 1e-14
 __C.ROOT_DIR = osp.abspath(osp.join(osp.dirname(__file__), '..', '..'))
 
 # Read environment setup from path that is not version controlled
-env_cfg_file = osp.join(__C.ROOT_DIR, 'output', 'env.yml')
+env_cfg_file = osp.join(__C.ROOT_DIR, 'out', 'env.yml')
 assert osp.isfile(env_cfg_file), \
-    'copy `env_template/env.yml` to `output/env.yml` and adapt for your machine setup'
+    'copy `env_template/env.yml` to `out/env.yml` and adapt for your machine setup'
 with open(env_cfg_file, 'r') as f:
     env_cfg = edict(yaml.load(f))
 
