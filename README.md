@@ -25,15 +25,13 @@ This repository contains the official TensorFlow implementation of
 - The code in `lib/nms` and `lib/boxes` is taken without changes from
   [py-faster-rcnn](https://github.com/rbgirshick/py-faster-rcnn).
 - The tensorflow code in `lib/nets/resnet_v1.py` and `lib/nets/network.py` is based on
-  [tf-faster-rcnn](https://github.com/endernewton/tf-faster-rcnn).
-- The tensorflow code in `lib/nets/resnet_v1.py` and `lib/nets/network.py` is based on
-  [tf-faster-rcnn](https://github.com/endernewton/tf-faster-rcnn).
+  [tf-faster-rcnn](https://github.com/endernewton/tf-faster-rcnn/tree/master/lib/nets).
 - The code in `lib/datasets/cityscapes/cityscapesscripts` is adapted from
-[cityscapesScripts](https://github.com/mcordts/cityscapesScripts).
-- Some files in `lib/layers` are based on
-  [py-faster-rcnn](https://github.com/rbgirshick/py-faster-rcnn)
+  [cityscapesScripts](https://github.com/mcordts/cityscapesScripts).
+- The initial files in `lib/layers` are based on
+  [py-faster-rcnn](https://github.com/rbgirshick/py-faster-rcnn/tree/master/lib/rpn).
   and include small modifications from
-  [tf-faster-rcnn](https://github.com/endernewton/tf-faster-rcnn).
+  [tf-faster-rcnn](https://github.com/endernewton/tf-faster-rcnn/tree/master/lib/layer_utils).
 - A few functions are loosely inspired by
   [FastMaskRCNN](https://github.com/CharlesShang/FastMaskRCNN).
 
