@@ -9,7 +9,7 @@ import numpy as np
 import cv2
 
 from model.config import cfg
-from utils.bbox_transform import clip_boxes
+from boxes.bbox_transform import clip_boxes
 from datasets.cityscapes.cityscapesscripts.labels import trainId2label
 
 

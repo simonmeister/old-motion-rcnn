@@ -9,7 +9,7 @@ from __future__ import print_function
 
 import numpy as np
 from model.config import cfg
-from utils.bbox_transform import bbox_transform_inv, clip_boxes
+from boxes.bbox_transform import bbox_transform_inv, clip_boxes
 
 
 def roi_refine_layer(rpn_rois, cls_scores, bbox_pred, im_size):

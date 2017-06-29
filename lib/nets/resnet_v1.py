@@ -28,9 +28,9 @@ def resnet_arg_scope(is_training=True,
                      batch_norm_epsilon=1e-5,
                      batch_norm_scale=True):
     batch_norm_params = {
-        # NOTE 'is_training' here does not work because inside resnet it gets reset:
-        # https://github.com/tensorflow/models/blob/master/slim/nets/resnet_v1.py#L187 #TODO understand
-        'is_training': False,
+        # NOTE 'is_training' is set appropriately inside of the resnet if we pass it to it:
+        # https://github.com/tensorflow/models/blob/master/slim/nets/resnet_v1.py#L187
+        # 'is_training': False,
         'decay': batch_norm_decay,
         'epsilon': batch_norm_epsilon,
         'scale': batch_norm_scale,
@@ -39,7 +39,7 @@ def resnet_arg_scope(is_training=True,
     }
 
     with arg_scope(
-            [slim.conv2d],
+            [slim.conv2d ,slim.conv2d_transpose],
             weights_regularizer=regularizers.l2_regularizer(weight_decay),
             weights_initializer=initializers.variance_scaling_initializer(),
             trainable=is_training,
@@ -149,13 +149,8 @@ class resnetv1(Network):
         return head
 
     def build_network(self, is_training=True):
-        # select initializers
-        if cfg.TRAIN.TRUNCATED:
-            initializer = tf.truncated_normal_initializer(mean=0.0, stddev=0.01)
-            initializer_bbox = tf.truncated_normal_initializer(mean=0.0, stddev=0.001)
-        else:
-            initializer = tf.random_normal_initializer(mean=0.0, stddev=0.01)
-            initializer_bbox = tf.random_normal_initializer(mean=0.0, stddev=0.001)
+        initializer = tf.truncated_normal_initializer(mean=0.0, stddev=0.01)
+        initializer_bbox = tf.truncated_normal_initializer(mean=0.0, stddev=0.001)
 
         with slim.arg_scope(resnet_arg_scope(is_training=is_training)):
             net_conv4, end_points = resnet_v1_50(

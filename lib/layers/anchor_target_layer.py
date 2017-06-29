@@ -2,7 +2,7 @@
 # Faster R-CNN
 # Copyright (c) 2015 Microsoft
 # Licensed under The MIT License [see LICENSE for details]
-# Written by Ross Girshick and Xinlei Chen
+# Written by Ross Girshick and Simon Meister
 # --------------------------------------------------------
 from __future__ import absolute_import
 from __future__ import division
@@ -12,14 +12,15 @@ import os
 from model.config import cfg
 import numpy as np
 import numpy.random as npr
-from utils.cython_bbox import bbox_overlaps
-from utils.bbox_transform import bbox_transform
+from boxes.cython_bbox import bbox_overlaps
+from boxes.bbox_transform import bbox_transform
 
 
 def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
     """Returns targets for all rpn anchor predictions.
 
-    Same as the anchor target layer in original Fast/er RCNN.
+    Unlike the anchor target layer in the original Faster R-CNN,
+    boxes intersecting the image boundaries are not removed.
 
     Args:
         gt_boxes: (G, 5)
@@ -106,6 +107,7 @@ def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
     if cfg.TRAIN.RPN_POSITIVE_WEIGHT < 0:
         # uniform weighting of examples (given non-uniform sampling)
         num_examples = np.sum(labels >= 0)
+        print(num_examples) # TODO find out why this always gives 128 OR 256!
         positive_weights = np.ones((1, 4)) * 1.0 / num_examples
         negative_weights = np.ones((1, 4)) * 1.0 / num_examples
     else:

@@ -9,8 +9,8 @@ from __future__ import print_function
 
 import numpy as np
 from model.config import cfg
-from utils.bbox_transform import bbox_transform_inv, clip_boxes
-from utils.nms_wrapper import nms
+from boxes.bbox_transform import bbox_transform_inv, clip_boxes
+from boxes.nms_wrapper import nms
 
 
 def proposal_layer(rpn_scores, rpn_bbox_pred, im_size, cfg_key, anchors, num_anchors):

@@ -20,8 +20,8 @@ cfg = __C
 __C.TRAIN = edict()
 
 # Training schedule
-__C.TRAIN.LEARNING_RATES = [0.001]
-__C.TRAIN.EPOCHS = [100]
+__C.TRAIN.LEARNING_RATES = [0.002, 0.001]
+__C.TRAIN.EPOCHS = [50, 25]
 
 # Momentum
 __C.TRAIN.MOMENTUM = 0.9
@@ -33,10 +33,7 @@ __C.TRAIN.WEIGHT_DECAY = 0.0005
 __C.TRAIN.DISPLAY_INTERVAL = 10
 
 # Whether to double the learning rate for bias
-__C.TRAIN.DOUBLE_BIAS = True
-
-# Whether to initialize the weights with truncated normal distribution
-__C.TRAIN.TRUNCATED = False
+__C.TRAIN.DOUBLE_BIAS = False
 
 # Whether to have weight decay on bias as well
 __C.TRAIN.BIAS_DECAY = False

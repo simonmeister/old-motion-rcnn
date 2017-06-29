@@ -15,7 +15,7 @@ import tensorflow as tf
 from tensorflow.contrib import slim
 
 from model.config import cfg
-from utils.timer import Timer
+from boxes.timer import Timer
 from datasets.cityscapes.cityscapesscripts.evaluate import evaluate_np_preds as evaluate_cs
 import datasets.cityscapes.cityscapesscripts.labels as labels
 from layers.mask_util import binary_mask

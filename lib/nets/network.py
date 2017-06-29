@@ -289,7 +289,7 @@ class Network(object):
                         sigma=1.0, dim=[1]):
         """Computes smooth l1 loss between bbox_pred and bbox_targets.
 
-        There are two types of usage:
+        There are two usages:
 
         1. All examples are weighted the same, there are no ignored terms:
             - bbox_inside_weights is 0 at negative examples, a positive constant otherwise
@@ -299,11 +299,13 @@ class Network(object):
             - dim should be [1] so that we sum over 4 target numbers but average over examples
 
         2. Manual weighting and support for ignored terms:
-            - bbox_inside_weights is zero at negative and ignored examples, a positive constant otherwise
+            - bbox_inside_weights is zero at negative and ignored examples, a positive constant
+            otherwise
             - bbox_outside_weights is zero at ignored examples and non-zero otherwise
                 => used to scale losses before summing them up. E.g. for uniform weighting of
-                pos. and neg., set bbox_outside_weights to 1 / num_non_ignored at non-ignored examples.
-            - dim should include all axes along which to sum
+                pos. and neg., set bbox_outside_weights to 1 / num_non_ignored at non-ignored
+                examples.
+            - dim should be [0, 1] to sum along all axes
         """
         sigma_2 = sigma ** 2
         box_diff = bbox_pred - bbox_targets
