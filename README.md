@@ -12,7 +12,7 @@ This repository contains the official TensorFlow implementation of
 - create `./out` directory
 - copy `env_template/env.yml` to `out/env.yml` and adapt for your machine setup
 - download `http://download.tensorflow.org/models/resnet_v1_50_2016_08_28.tar.gz` and unzip to `./data/models/`
-- go to `./libs` and run `make`
+- go to `./lib` and run `make`
 - run `tools/create_tfrecords.py` with each `--dataset`/`--split` combination you need
 
 ## Usage
