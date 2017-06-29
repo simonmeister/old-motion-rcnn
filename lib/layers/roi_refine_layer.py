@@ -27,9 +27,11 @@ def roi_refine_layer(rpn_rois, cls_scores, bbox_pred, im_size):
     top_classes = np.argmax(cls_scores, axis=1)
     num_classes = cls_scores.shape[1]
     num_rois = cls_scores.shape[0]
+
     bbox_sel = top_classes + np.arange(num_rois) * num_classes
     bbox_pred = np.reshape(bbox_pred, [-1, 4])
     bbox_pred = bbox_pred[bbox_sel, :]
+    
     boxes = bbox_transform_inv(rpn_rois[:, 1:], bbox_pred)
     boxes = clip_boxes(boxes, im_size)
 

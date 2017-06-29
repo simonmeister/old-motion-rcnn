@@ -82,7 +82,7 @@ class Trainer(object):
             print('Restoring model checkpoint from {}'.format(ckpt_path))
             saver.restore(sess, ckpt_path)
             print('Restored.')
-            epoch = int(ckpt_path.split('/')[-1].split('-')[-1])
+            epoch = int(ckpt_path.split('/')[-1].split('-')[-1]) + 1
 
         seed = cfg.RNG_INITIAL_SEED + epoch * cfg.RNG_EPOCH_SEED_INCREMENT
         np.random.seed(seed)
@@ -128,12 +128,11 @@ class Trainer(object):
                 timer.toc()
 
                 if i % cfg.TRAIN.DISPLAY_INTERVAL == 0:
-                    print('epoch {} [{} / {} at {:.3f} s/batch] '
-                          'loss: {:.4f} ({:.4f}|{:.4f} rpn cls|box, {:.4f}|{:.4f} cls|box, {:.4f} mask)'
-                          ' - lr {}'
-                          .format(epoch, i, max_i, timer.average_time,
-                                  total_loss, rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, mask_loss,
-                                  learning_rate))
+                    print('{} [{} / {} at {:.3f} s/batch & lr {}] '
+                          'loss: {:.4f} [RPN cls {:.4f} box {:.4f}] [cls {:.4f} box {:.4f} mask {:.4f}]'
+                          .format(epoch, i, max_i, timer.average_time, learning_rate,
+                                  total_loss, rpn_loss_cls, rpn_loss_box, loss_cls, loss_box,
+                                  mask_loss))
                 i += 1
         except tf.errors.OutOfRangeError:
             pass
@@ -209,7 +208,7 @@ class Trainer(object):
         pred_np_arrays = []
         summary_images = []
         try:
-            while iters<10:
+            while not coord.should_stop():
                 loss_ops = [v for (k, v) in net._losses]
                 pred_ops = [
                     net._predictions['masks'],

@@ -33,7 +33,7 @@ def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
         bbox_inside_weights: (A, 4), row zero if label == -1 (no example), else one
         bbox_outside_weights: (A, 4), contribution of each example row to final loss (0 if ignore)
     """
-    total_anchors = all_anchors.shape[0]
+    total_anchors = len(all_anchors)
 
     # allow boxes to sit over the edge by a small amount
     #_allowed_border = 0
@@ -57,13 +57,16 @@ def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
     # overlaps between the anchors and the gt boxes, (A, G)
     overlaps = bbox_overlaps(
         np.ascontiguousarray(anchors, dtype=np.float),
-        np.ascontiguousarray(gt_boxes[:4], dtype=np.float))
+        np.ascontiguousarray(gt_boxes[:, :4], dtype=np.float))
     argmax_overlaps = overlaps.argmax(axis=1)
     max_overlaps = overlaps[np.arange(len(inds_inside)), argmax_overlaps]
     gt_argmax_overlaps = overlaps.argmax(axis=0)
-    gt_max_overlaps = overlaps[gt_argmax_overlaps,
-                               np.arange(overlaps.shape[1])]
-    gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
+    #gt_max_overlaps = overlaps[gt_argmax_overlaps,
+    #                           np.arange(overlaps.shape[1])]
+    # gt_argmax_overlaps = np.where(overlaps == gt_max_overlaps)[0]
+    # TODO are the anchors wrong if there is some gt box which has equally little overlap
+    # with each anchor?
+    # => CHECK ANCHOR TEST AGAIN!
 
     if not cfg.TRAIN.RPN_CLOBBER_POSITIVES:
         # assign bg labels first so that positive labels can clobber them
@@ -96,6 +99,10 @@ def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
             bg_inds, size=(len(bg_inds) - num_bg), replace=False)
         labels[disable_inds] = -1
 
+    #print("{} anchors, {} boxes, {} ==1, {} ==0, {} fg, {} bg"
+    #      .format(len(all_anchors), len(gt_boxes), np.sum(labels == 1),
+    #       np.sum(labels == 0), len(fg_inds), len(bg_inds)))
+
     bbox_targets = np.zeros((len(inds_inside), 4), dtype=np.float32)
     bbox_targets = _compute_targets(anchors, gt_boxes[argmax_overlaps, :])
 
@@ -107,7 +114,6 @@ def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
     if cfg.TRAIN.RPN_POSITIVE_WEIGHT < 0:
         # uniform weighting of examples (given non-uniform sampling)
         num_examples = np.sum(labels >= 0)
-        print(num_examples) # TODO find out why this always gives 128 OR 256!
         positive_weights = np.ones((1, 4)) * 1.0 / num_examples
         negative_weights = np.ones((1, 4)) * 1.0 / num_examples
     else:

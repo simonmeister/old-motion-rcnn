@@ -209,8 +209,8 @@ __C.CHECKPOINT_DIR = osp.abspath(env_cfg.CHECKPOINT_DIR)
 __C.EXAMPLES_PER_TFRECORD = 500
 
 # Where to store experiment output data other than checkpoints
-__C.LOG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'output', 'logs'))
-__C.CONFIG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'output', 'cfgs'))
+__C.LOG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'out', 'logs'))
+__C.CONFIG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'out', 'cfgs'))
 
 # Name (or path to) the matlab executable
 __C.MATLAB = 'matlab'

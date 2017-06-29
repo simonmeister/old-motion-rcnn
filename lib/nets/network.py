@@ -78,7 +78,8 @@ class Network(object):
             means = np.tile(np.array(cfg.TRAIN.BBOX_NORMALIZE_MEANS), (self._num_classes))
             self._predictions['bbox_pred'] *= stds
             self._predictions['bbox_pred'] += means
-        else:
+
+        if is_training:
             self._add_losses()
 
         with tf.device('/cpu:0'):
