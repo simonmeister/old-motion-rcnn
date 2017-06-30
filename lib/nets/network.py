@@ -97,8 +97,6 @@ class Network(object):
             for var in self._train_summaries:
                 self._add_train_summary(var)
 
-        self._summary_op = tf.summary.merge_all()
-
     ###########################################################################
     # Mask R-CNN layers
     ###########################################################################
@@ -135,8 +133,7 @@ class Network(object):
     def _crop_rois_from_pyramid(self, rois, pyramid, name):
         """rois is (N, 5), where first entry is batch"""
         with tf.variable_scope(name) as scope:
-            boxes = tf.slice(rois, [0, 1], [-1, -1])
-            level_assignments = self._assign_boxes(boxes)
+            level_assignments = self._assign_boxes(rois[:, 1:])
             reordered_roi_crops = []
             reordered_indices = []
 

@@ -40,24 +40,27 @@ with tf.Graph().as_default():
 
     tf.train.start_queue_runners(sess=sess)
     with sess.as_default():
-        for i in range(30):
+        for i in range(1):
             image_np, ih_np, iw_np, gt_boxes_np, gt_masks_np, num_instances_np, img_id_np = \
                 sess.run([image, ih, iw, gt_boxes, gt_masks, num_instances, img_id])
             img_id_np = img_id_np.decode('utf8')
             print('image_id: {}, instances: {}, shape: {}'.format(img_id_np, num_instances_np, image_np.shape))
             image_np = np.squeeze(image_np)
 
-            for feat_stride, scale in zip([4, 8, 16, 32, 64], [32, 64, 128, 512]):
+            for feat_stride in [4, 8, 16, 32, 64]:
                 anchor_boxes = generate_level_anchors(ih_np / feat_stride, iw_np / feat_stride,
                                                       feat_stride=feat_stride)
-                print(anchor_boxes.shape)
-                print(anchor_boxes[1, 2] - anchor_boxes[1, 0], # size of boxes with ratio 1.0
+                print(anchor_boxes.shape, ih_np / feat_stride, iw_np / feat_stride )
+                print(anchor_boxes[1, 2] - anchor_boxes[1, 0] + 1, # size of boxes with ratio 1.0
                       np.mean((anchor_boxes[:, 0] + anchor_boxes[:, 2])/2), # mean x center
                       np.mean((anchor_boxes[:, 1] + (anchor_boxes[:, 3])/2))) # mean y center
 
                 # draw boxes
                 im = Image.fromarray(image_np.astype(np.uint8))
                 imd = ImageDraw.Draw(im)
+                anchor_indices = np.random.choice(
+                    np.arange(len(anchor_boxes)), size=int(400./feat_stride), replace=False)
+                anchor_boxes = anchor_boxes[anchor_indices, :]
                 for i in range(anchor_boxes.shape[0]):
                     imd.rectangle(anchor_boxes[i, :])
 

@@ -63,7 +63,7 @@ class Trainer(object):
 
     def _train_epochs(self, sess, schedule):
         total_epochs = sum([ep for ep, lr in schedule])
-        print("Training for {} epochs: {}.".format(total_epochs, schedule))
+        print("Training for {} epoch(s): {}.".format(total_epochs, schedule))
         with tf.device('/cpu:0'):
             batch = self.dataset.get_train_batch(total_epochs)
 
@@ -126,7 +126,7 @@ class Trainer(object):
                         ]
 
                         if i % cfg.TRAIN.SUMMARY_INTERVAL == 0:
-                            run_ops.append(net._summary_op)
+                            run_ops.append(tf.summary.merge_all())
 
                         run_results = sess.run(run_ops, feed_dict=feed_dict)
 

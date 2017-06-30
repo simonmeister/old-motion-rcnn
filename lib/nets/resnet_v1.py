@@ -85,7 +85,7 @@ def resnet_v1_50(inputs,
                  scope='resnet_v1_50'):
   """Unlike the slim default we use a stride of 2 in the last block."""
   blocks = [
-      resnet_v1_block('block1', base_depth=64, num_units=3, stride=2),
+      resnet_v1_block('block1', base_depth=64, num_units=3, stride=1),
       resnet_v1_block('block2', base_depth=128, num_units=4, stride=2),
       resnet_v1_block('block3', base_depth=256, num_units=6, stride=2),
       resnet_v1_block('block4', base_depth=512, num_units=3, stride=2),
@@ -101,7 +101,10 @@ def resnet_v1_50(inputs,
 
 
 def to_nchw(tensor):
-    """Converts default tensorflow NHWC format to NCHW for efficient conv2d."""
+    """Converts default tensorflow NHWC format to NCHW for efficient conv2d.
+    Note that NCHW support requires a few small changes to the slim resnet
+    implementation.
+    """
     if cfg.RESNET.USE_NCHW:
         return tf.transpose(tensor, [0, 3, 1, 2])
     return tensor
@@ -145,8 +148,10 @@ class resnetv1(Network):
                 this_C_adapted = slim.conv2d(this_C, 256, [1,1], stride=1,
                                              scope='C{}'.format(c))
 
-                this_P = tf.add(to_nchw(prev_P_up), this_C_adapted, name='C{}/add'.format(c))
-                this_P = slim.conv2d(this_P, 256, [3,3], stride=1, scope='C{}/refine'.format(c))
+                this_P = tf.add(to_nchw(prev_P_up), this_C_adapted,
+                                name='C{}/add'.format(c))
+                this_P = slim.conv2d(this_P, 256, [3,3], stride=1,
+                                     scope='C{}/refine'.format(c))
                 pyramid.append(this_P)
         pyramid = pyramid[::-1]
         pyramid = [from_nchw(level) for level in pyramid]
@@ -155,10 +160,13 @@ class resnetv1(Network):
     def _mask_head(self, roi_crops):
         m = to_nchw(roi_crops)
         for _ in range(4):
-            m = slim.conv2d(m, 256, [3, 3], stride=1, padding='SAME', activation_fn=tf.nn.relu)
+            m = slim.conv2d(m, 256, [3, 3], stride=1, padding='SAME',
+                            activation_fn=tf.nn.relu)
         # to 28x28
-        m = slim.conv2d_transpose(m, 256, 2, stride=2, padding='VALID', activation_fn=tf.nn.relu)
-        m = slim.conv2d(m, 1, [1, 1], stride=1, padding='VALID', activation_fn=None)
+        m = slim.conv2d_transpose(m, 256, 2, stride=2, padding='VALID',
+                                  activation_fn=tf.nn.relu)
+        m = slim.conv2d(m, 1, [1, 1], stride=1, padding='VALID',
+                        activation_fn=None)
         return from_nchw(m)
 
     def _fully_connected_roi_head(self, roi_crops, is_training):

@@ -17,9 +17,10 @@ This repository contains the official TensorFlow implementation of
 - run `tools/create_tfrecords.py` with each `--dataset`/`--split` combination you need
 
 ## Usage
-- run `python test/cityscapes.py` to visualize the cityscapes dataset
 - run `python tools/trainval.py` for training
 - run `python tools/test.py` for testing
+- run `python test/cityscapes.py` to visualize the cityscapes dataset
+- run `python test/anchors.py` to visualize anchors for different levels
 
 ## Acknowledgments
 - The code in `lib/nms` and `lib/boxes` is taken without changes from
