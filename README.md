@@ -2,7 +2,9 @@
 
 This repository contains the official TensorFlow implementation of
 [Motion R-CNN](TODO).
-
+As a baseline, training of
+[Mask R-CNN](https://arxiv.org/abs/1703.06870)
+on Cityscapes is supported.
 
 ## Requirements
 
