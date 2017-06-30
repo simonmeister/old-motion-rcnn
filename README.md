@@ -3,11 +3,13 @@
 This repository contains the official TensorFlow implementation of
 [Motion R-CNN](TODO).
 
+
 ## Requirements
 
 - [tensorflow (>= 1.2.0)](https://www.tensorflow.org/install/install_linux) with GPU support.
   For best performance, i highly recommend building from source.
 - `pip install pillow matplotlib opencv-python easydict cython tqdm`
+
 
 ## Setup
 - create `./out` directory
@@ -16,14 +18,18 @@ This repository contains the official TensorFlow implementation of
 - go to `./lib` and run `make`
 - run `tools/create_tfrecords.py` with each `--dataset`/`--split` combination you need
 
+
 ## Usage
 - run `python tools/trainval.py` for training
 - run `python tools/test.py` for testing
 
+
 ## Unit Tests
 - run `python test/cityscapes.py` to visualize the cityscapes dataset
 - run `python test/anchors.py` to visualize anchors for different levels
+
 Visualizations are written to `out/tests`.
+
 
 ## Acknowledgments
 - The code in `lib/nms` and `lib/boxes` is taken without changes from
@@ -38,6 +44,7 @@ Visualizations are written to `out/tests`.
   [cityscapesScripts](https://github.com/mcordts/cityscapesScripts).  
 - `lib/layers/assign_boxes.py` is taken from
   [FastMaskRCNN](https://github.com/CharlesShang/FastMaskRCNN).
+
 
 ## License
 See [LICENSE](https://github.com/simonmeister/motion-rcnn/blob/master/LICENSE) for details.
