@@ -16,11 +16,11 @@ This repository contains the official TensorFlow implementation of
 - go to `./lib` and run `make`
 - run `tools/create_tfrecords.py` with each `--dataset`/`--split` combination you need
 
-## Training
+## Usage
 - run `python tools/trainval.py` for training
 - run `python tools/test.py` for testing
 
-## (Unit) Testing
+## Unit Tests
 - run `python test/cityscapes.py` to visualize the cityscapes dataset
 - run `python test/anchors.py` to visualize anchors for different levels
 Visualizations are written to `out/tests`.
@@ -30,7 +30,7 @@ Visualizations are written to `out/tests`.
   [py-faster-rcnn](https://github.com/rbgirshick/py-faster-rcnn).
 - The tensorflow code in `lib/nets/resnet_v1.py` and `lib/nets/network.py` is based on
   [tf-faster-rcnn](https://github.com/endernewton/tf-faster-rcnn/tree/master/lib/nets).
-- The initial files in `lib/layers` are based on
+- The files implementing common Faster R-CNN layers in `lib/layers` are based on
   [py-faster-rcnn](https://github.com/rbgirshick/py-faster-rcnn/tree/master/lib/rpn)
   and include small modifications from
   [tf-faster-rcnn](https://github.com/endernewton/tf-faster-rcnn/tree/master/lib/layer_utils).
