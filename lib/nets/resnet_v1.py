@@ -62,8 +62,10 @@ def resnet_v1_block(scope, base_depth, num_units, stride):
     scope: The scope of the block.
     base_depth: The depth of the bottleneck layer for each unit.
     num_units: The number of units in the block.
-    stride: The stride of the block, implemented as a stride in the last unit.
+    stride: The stride of the block, implemented as a stride in the first unit.
       All other units have stride=1.
+      Note that the default slim implementation places the stride in the last unit,
+      which is less memory efficient and a deviation from the resnet paper.
   Returns:
     A resnet_v1 bottleneck block.
   """
@@ -78,12 +80,10 @@ def resnet_v1_block(scope, base_depth, num_units, stride):
   }] * (num_units - 1))
 
 
-# TODO https://github.com/tensorflow/tensorflow/blob/master/tensorflow/contrib/slim/python/slim/nets/resnet_v1.py#L119
-# stride should be at first layer to save some memory
 def resnet_v1_50(inputs,
                  is_training=None,
                  scope='resnet_v1_50'):
-  """ResNet-50 model of [1]. See resnet_v1() for arg and return description."""
+  """Unlike the slim default we use a stride of 2 in the last block."""
   blocks = [
       resnet_v1_block('block1', base_depth=64, num_units=3, stride=2),
       resnet_v1_block('block2', base_depth=128, num_units=4, stride=2),

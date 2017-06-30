@@ -93,13 +93,13 @@ if __name__ == '__main__':
     dataset = Dataset()
     dataset.num_classes = NUM_TRAIN_CLASSES
 
-    dataset.get_train_batch = lambda: get_batch(
+    dataset.get_train_batch = lambda epochs: get_batch(
         args.dataset, args.train_split, cfg.TFRECORD_DIR,
-        is_training=True)
+        is_training=True, epochs=epochs)
 
     dataset.get_val_batch = lambda: get_batch(
         args.dataset, args.val_split, cfg.TFRECORD_DIR,
-        is_training=False)
+        is_training=False, epochs=1)
 
     trainer = Trainer(resnetv1, dataset,
                       pretrained_model='data/models/resnet_v1_50.ckpt',
@@ -107,7 +107,8 @@ if __name__ == '__main__':
     if args.mode == 'trainval':
         trainer.train_val(zip(cfg.TRAIN.EPOCHS, cfg.TRAIN.LEARNING_RATES))
     elif args.mode == 'train':
-        trainer.train(zip(cfg.TRAIN.EPOCHS, cfg.TRAIN.LEARNING_RATES))
+        trainer.train_val(zip(cfg.TRAIN.EPOCHS, cfg.TRAIN.LEARNING_RATES),
+                          val=False)
     elif args.mode == 'val':
         trainer.evaluate()
     else:

@@ -39,17 +39,20 @@ class Trainer(object):
             os.makedirs(self.ckpt_dir)
         self.pretrained_model = pretrained_model
 
-    def train_val(self, schedule):
+    def train_val(self, schedule, val=True):
         for epochs, learning_rate in schedule:
             for epoch in range(epochs):
                 self.train_epoch(learning_rate)
-                self.evaluate()
+                if val:
+                    self.evaluate()
 
     def train(self, schedule):
+        # TODO this doesn't work properly yet as we rely on the coord stop signal
+        # after each epoch to save checkpoints
         tfconfig = tf.ConfigProto(allow_soft_placement=True)
         tfconfig.gpu_options.allow_growth = True
         with tf.Session(config=tfconfig) as sess:
-            self._train_epochs(sess, schedule)
+            self._train_epochs(sess, list(schedule))
 
     def train_epoch(self, learning_rate):
         with tf.Graph().as_default():
@@ -59,8 +62,10 @@ class Trainer(object):
                 self._train_epochs(sess, [(1, learning_rate)])
 
     def _train_epochs(self, sess, schedule):
+        total_epochs = sum([ep for ep, lr in schedule])
+        print("Training for {} epochs: {}.".format(total_epochs, schedule))
         with tf.device('/cpu:0'):
-            batch = self.dataset.get_train_batch()
+            batch = self.dataset.get_train_batch(total_epochs)
 
         net = self.network_cls(batch,
                                is_training=True,

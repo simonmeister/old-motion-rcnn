@@ -118,7 +118,7 @@ __C.TRAIN.RPN_BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
 __C.TRAIN.RPN_POSITIVE_WEIGHT = -1.0
 
 # Minimum amount of examples in a shuffle queue, more means better shuffling
-__C.TRAIN.MIN_EXAMPLES_AFTER_DEQUEUE = 500
+__C.TRAIN.MIN_EXAMPLES_AFTER_DEQUEUE = 50
 
 # Number of examples in one epoch.
 # For cityscapes, this is the number of examples in the train split.
