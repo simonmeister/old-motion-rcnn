@@ -5,20 +5,21 @@
 # --------------------------------------------------------
 from __future__ import absolute_import, division, print_function
 
+import numpy as np
+
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 from tensorflow.contrib.slim import losses
 from tensorflow.contrib.slim import arg_scope
-from tensorflow.contrib.slim.python.slim.nets import resnet_utils
-from tensorflow.contrib.slim.python.slim.nets.resnet_v1 import resnet_v1, bottleneck
-import numpy as np
-
-from nets.network import Network
 from tensorflow.python.framework import ops
 from tensorflow.contrib.layers.python.layers import regularizers
 from tensorflow.python.ops import nn_ops
 from tensorflow.contrib.layers.python.layers import initializers
 from tensorflow.contrib.layers.python.layers import layers
+
+from nets.network import Network
+from nets.slim_resnet import resnet_utils
+from nets.slim_resnet.resnet_v1 import resnet_v1, bottleneck
 from model.config import cfg
 
 
@@ -27,6 +28,7 @@ def resnet_arg_scope(is_training=True,
                      batch_norm_decay=0.997,
                      batch_norm_epsilon=1e-5,
                      batch_norm_scale=True):
+    data_format = 'NCHW' if cfg.RESNET.USE_NCHW else 'NHWC'
     batch_norm_params = {
         # NOTE 'is_training' is set appropriately inside of the resnet if we pass it to it:
         # https://github.com/tensorflow/models/blob/master/slim/nets/resnet_v1.py#L187
@@ -35,19 +37,23 @@ def resnet_arg_scope(is_training=True,
         'epsilon': batch_norm_epsilon,
         'scale': batch_norm_scale,
         'trainable': cfg.RESNET.BN_TRAIN,
-        'updates_collections': ops.GraphKeys.UPDATE_OPS
+        'data_format': data_format,
+        'fused': True
     }
 
     with arg_scope(
-            [slim.conv2d ,slim.conv2d_transpose],
+            [slim.conv2d, slim.conv2d_transpose],
             weights_regularizer=regularizers.l2_regularizer(weight_decay),
             weights_initializer=initializers.variance_scaling_initializer(),
             trainable=is_training,
             activation_fn=nn_ops.relu,
             normalizer_fn=layers.batch_norm,
+            data_format=data_format,
             normalizer_params=batch_norm_params):
-        with arg_scope([layers.batch_norm], **batch_norm_params) as arg_sc:
-            return arg_sc
+        with arg_scope([slim.max_pool2d, resnet_utils.conv2d_same],
+                       data_format=data_format):
+            with arg_scope([layers.batch_norm], **batch_norm_params) as arg_sc:
+                return arg_sc
 
 
 def resnet_v1_block(scope, base_depth, num_units, stride):
@@ -94,6 +100,20 @@ def resnet_v1_50(inputs,
       scope=scope)
 
 
+def to_nchw(tensor):
+    """Converts default tensorflow NHWC format to NCHW for efficient conv2d."""
+    if cfg.RESNET.USE_NCHW:
+        return tf.transpose(tensor, [0, 3, 1, 2])
+    return tensor
+
+
+def from_nchw(tensor):
+    """Converts NCHW format back to default tensorflow NHWC."""
+    if cfg.RESNET.USE_NCHW:
+        return tf.transpose(tensor, [0, 2, 3, 1])
+    return tensor
+
+
 class resnetv1(Network):
     def __init__(self, *args, **kwargs):
         self._resnet_scope = 'resnet_v1_50'
@@ -110,7 +130,8 @@ class resnetv1(Network):
         with tf.variable_scope('pyramid'):
             C5 = end_points[end_points_map['C5']]
             P5 = slim.conv2d(C5, 256, [1, 1], stride=1, scope='P5')
-            P6 = P5[:, ::2, ::2, :]
+            is_nchw = cfg.RESNET.USE_NCHW
+            P6 = P5[:, :, ::2, ::2] if is_nchw else P5[:, ::2, ::2, :]
             pyramid = [P6, P5]
 
             for c in range(4, 1, -1):
@@ -118,25 +139,27 @@ class resnetv1(Network):
                 prev_P = pyramid[-1]
 
                 up_shape = tf.shape(this_C)
-                prev_P_up = tf.image.resize_bilinear(prev_P, [up_shape[1], up_shape[2]],
+                up_shape = [up_shape[2], up_shape[3]] if is_nchw else [up_shape[1], up_shape[2]]
+                prev_P_up = tf.image.resize_bilinear(from_nchw(prev_P), up_shape,
                                                      name='C{}/upscale'.format(c))
                 this_C_adapted = slim.conv2d(this_C, 256, [1,1], stride=1,
                                              scope='C{}'.format(c))
 
-                this_P = tf.add(prev_P_up, this_C_adapted, name='C{}/add'.format(c))
+                this_P = tf.add(to_nchw(prev_P_up), this_C_adapted, name='C{}/add'.format(c))
                 this_P = slim.conv2d(this_P, 256, [3,3], stride=1, scope='C{}/refine'.format(c))
                 pyramid.append(this_P)
         pyramid = pyramid[::-1]
+        pyramid = [from_nchw(level) for level in pyramid]
         return pyramid
 
     def _mask_head(self, roi_crops):
-        m = roi_crops
+        m = to_nchw(roi_crops)
         for _ in range(4):
             m = slim.conv2d(m, 256, [3, 3], stride=1, padding='SAME', activation_fn=tf.nn.relu)
         # to 28x28
         m = slim.conv2d_transpose(m, 256, 2, stride=2, padding='VALID', activation_fn=tf.nn.relu)
         m = slim.conv2d(m, 1, [1, 1], stride=1, padding='VALID', activation_fn=None)
-        return m
+        return from_nchw(m)
 
     def _fully_connected_roi_head(self, roi_crops, is_training):
         # to 7x7
@@ -154,7 +177,7 @@ class resnetv1(Network):
 
         with slim.arg_scope(resnet_arg_scope(is_training=is_training)):
             net_conv4, end_points = resnet_v1_50(
-                self._image,
+                to_nchw(self._image),
                 is_training=is_training,
                 scope=self._resnet_scope)
             pyramid = self._build_pyramid(end_points)
@@ -168,27 +191,27 @@ class resnetv1(Network):
             for i, level in enumerate(pyramid):
                 level_name = 'P{}'.format(self._pyramid_indices[i])
                 with tf.variable_scope(level_name):
-                    rpn = slim.conv2d(level, 256, [3, 3],
-                                      trainable=is_training,
-                                      weights_initializer=initializer,
-                                      scope='rpn')
+                    with slim.arg_scope(resnet_arg_scope(is_training=is_training)):
+                        rpn = slim.conv2d(to_nchw(level), 256, [3, 3],
+                                          trainable=is_training,
+                                          weights_initializer=initializer,
+                                          scope='rpn')
 
-                    rpn_logits = slim.conv2d(rpn, self._num_anchors * 2, [1, 1],
-                                             weights_initializer=initializer,
-                                             padding='VALID',
-                                             activation_fn=None,
-                                             scope='rpn_logits')
+                        rpn_logits = slim.conv2d(rpn, self._num_anchors * 2, [1, 1],
+                                                 weights_initializer=initializer,
+                                                 padding='VALID',
+                                                 activation_fn=None,
+                                                 scope='rpn_logits')
 
-                    rpn_logits = tf.reshape(rpn_logits, [-1, 2])
+                        rpn_bbox_pred = slim.conv2d(rpn, self._num_anchors * 4, [1, 1],
+                                                    weights_initializer=initializer,
+                                                    padding='VALID',
+                                                    activation_fn=None,
+                                                    scope='rpn_bbox_pred')
+
+                    rpn_logits = tf.reshape(from_nchw(rpn_logits), [-1, 2])
                     rpn_scores = tf.nn.softmax(rpn_logits, dim=1, name='rpn_scores')
-
-                    rpn_bbox_pred = slim.conv2d(rpn, self._num_anchors * 4, [1, 1],
-                                                weights_initializer=initializer,
-                                                padding='VALID',
-                                                activation_fn=None,
-                                                scope='rpn_bbox_pred')
-
-                    rpn_bbox_pred = tf.reshape(rpn_bbox_pred, [-1, 4])
+                    rpn_bbox_pred = tf.reshape(from_nchw(rpn_bbox_pred), [-1, 4])
 
                 self._act_summaries.append(rpn)
                 level_outputs.append((rpn_logits, rpn_scores, rpn_bbox_pred))
@@ -236,7 +259,8 @@ class resnetv1(Network):
                                                                 'testing_rois')
                 roi_crops = self._crop_rois_from_pyramid(rois, pyramid, name='roi_crops')
 
-            mask_logits = self._mask_head(roi_crops)
+            with slim.arg_scope(resnet_arg_scope(is_training=is_training)):
+                mask_logits = self._mask_head(roi_crops)
             mask_scores = tf.sigmoid(mask_logits, name='mask_scores')
             masks = tf.to_float(mask_scores >= 0.5, name='masks')
 

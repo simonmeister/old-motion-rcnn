@@ -39,23 +39,29 @@ class Trainer(object):
             os.makedirs(self.ckpt_dir)
         self.pretrained_model = pretrained_model
 
-    def train_val(self, schedule, val=True):
+    def train_val(self, schedule):
         for epochs, learning_rate in schedule:
             for epoch in range(epochs):
                 self.train_epoch(learning_rate)
-                if val:
-                    self.evaluate()
+                self.evaluate()
+
+    def train(self, schedule):
+        tfconfig = tf.ConfigProto(allow_soft_placement=True)
+        tfconfig.gpu_options.allow_growth = True
+        with tf.Session(config=tfconfig) as sess:
+            self._train_epochs(sess, schedule)
 
     def train_epoch(self, learning_rate):
         with tf.Graph().as_default():
             tfconfig = tf.ConfigProto(allow_soft_placement=True)
             tfconfig.gpu_options.allow_growth = True
             with tf.Session(config=tfconfig) as sess:
-                self._train_epoch(sess, learning_rate)
+                self._train_epochs(sess, [(1, learning_rate)])
 
-    def _train_epoch(self, sess, learning_rate):
+    def _train_epochs(self, sess, schedule):
         with tf.device('/cpu:0'):
             batch = self.dataset.get_train_batch()
+
         net = self.network_cls(batch,
                                is_training=True,
                                num_classes=self.dataset.num_classes)
@@ -94,51 +100,55 @@ class Trainer(object):
         threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
         timer = Timer()
-        i = 0
-        max_i = cfg.TRAIN.EXAMPLES_PER_EPOCH - 1
-        last_summary_time = time.time()
-        try:
-            while not coord.should_stop():
-                timer.tic()
-                feed_dict = {lr_placeholder: learning_rate}
 
-                run_ops = [
-                    net._losses['rpn_cross_entropy'],
-                    net._losses['rpn_loss_box'],
-                    net._losses['cross_entropy'],
-                    net._losses['loss_box'],
-                    net._losses['mask_loss'],
-                    net._losses['total_loss'],
-                    train_op
-                ]
+        for local_epochs, lr in schedule:
+            for _ in range(local_epochs):
+                i = 0
+                max_i = cfg.TRAIN.EXAMPLES_PER_EPOCH - 1
+                try:
+                    while not coord.should_stop():
+                        timer.tic()
+                        feed_dict = {lr_placeholder: lr}
 
-                if i % cfg.TRAIN.SUMMARY_INTERVAL == 0:
-                    run_ops.append(net._summary_op)
+                        run_ops = [
+                            net._losses['rpn_cross_entropy'],
+                            net._losses['rpn_loss_box'],
+                            net._losses['cross_entropy'],
+                            net._losses['loss_box'],
+                            net._losses['mask_loss'],
+                            net._losses['total_loss'],
+                            train_op
+                        ]
 
-                run_results = sess.run(run_ops, feed_dict=feed_dict)
+                        if i % cfg.TRAIN.SUMMARY_INTERVAL == 0:
+                            run_ops.append(net._summary_op)
 
-                if i % cfg.TRAIN.SUMMARY_INTERVAL == 0:
-                    summary = run_results[-1]
-                    run_results = run_results[:-1]
-                    writer.add_summary(summary, float(i - 1) + epoch * max_i)
+                        run_results = sess.run(run_ops, feed_dict=feed_dict)
 
-                rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, mask_loss, total_loss, _ \
-                    = run_results
+                        if i % cfg.TRAIN.SUMMARY_INTERVAL == 0:
+                            summary = run_results[-1]
+                            run_results = run_results[:-1]
+                            writer.add_summary(summary, float(i - 1) + epoch * max_i)
 
-                timer.toc()
+                        rpn_loss_cls, rpn_loss_box, loss_cls, loss_box, mask_loss, total_loss, _ \
+                            = run_results
 
-                if i % cfg.TRAIN.DISPLAY_INTERVAL == 0:
-                    print('{} [{} / {} at {:.3f} s/batch & lr {}] '
-                          'loss: {:.4f} [RPN cls {:.4f} box {:.4f}] [cls {:.4f} box {:.4f} mask {:.4f}]'
-                          .format(epoch, i, max_i, timer.average_time, learning_rate,
-                                  total_loss, rpn_loss_cls, rpn_loss_box, loss_cls, loss_box,
-                                  mask_loss))
-                i += 1
-        except tf.errors.OutOfRangeError:
-            pass
+                        timer.toc()
 
-        save_filename = os.path.join(self.ckpt_dir, 'model.ckpt')
-        saver.save(sess, save_filename, global_step=epoch)
+                        if i % cfg.TRAIN.DISPLAY_INTERVAL == 0:
+                            print('{} [{} / {} at {:.3f} s/batch & lr {}] '
+                                  'loss: {:.4f} [RPN cls {:.4f} box {:.4f}] [cls {:.4f} box {:.4f} mask {:.4f}]'
+                                  .format(epoch, i, max_i, timer.average_time, lr,
+                                          total_loss, rpn_loss_cls, rpn_loss_box, loss_cls, loss_box,
+                                          mask_loss))
+                        i += 1
+                except tf.errors.OutOfRangeError:
+                    pass
+
+                save_filename = os.path.join(self.ckpt_dir, 'model.ckpt')
+                saver.save(sess, save_filename, global_step=epoch)
+                epoch += 1
+
         writer.close()
         coord.request_stop()
         coord.join(threads)
@@ -186,8 +196,8 @@ class Trainer(object):
 
         ckpt_path = ckpt.model_checkpoint_path
         epoch = int(ckpt_path.split('/')[-1].split('-')[-1])
-
-        batch = self.dataset.get_val_batch()
+        with tf.device('/cpu:0'):
+            batch = self.dataset.get_val_batch()
         image = batch[0]
         net = self.network_cls(batch,
                                is_training=False,

@@ -5,8 +5,9 @@ This repository contains the official TensorFlow implementation of
 
 ## Requirements
 
-- [tensorflow (>= 1.2.0)](https://www.tensorflow.org/install/install_linux)
-- `pip install tensorflow-gpu pillow matplotlib opencv-python easydict cython tqdm`
+- [tensorflow (>= 1.2.0)](https://www.tensorflow.org/install/install_linux) with GPU support.
+  For best performance, i highly recommend building from source.
+- `pip install pillow matplotlib opencv-python easydict cython tqdm`
 
 ## Setup
 - create `./out` directory

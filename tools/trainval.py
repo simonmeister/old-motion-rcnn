@@ -104,9 +104,10 @@ if __name__ == '__main__':
     trainer = Trainer(resnetv1, dataset,
                       pretrained_model='data/models/resnet_v1_50.ckpt',
                       ckpt_dir=ckpt_dir, tbdir=log_dir)
-    if args.mode in ['trainval', 'train']:
-        trainer.train_val(zip(cfg.TRAIN.EPOCHS, cfg.TRAIN.LEARNING_RATES),
-                          val=args.mode == 'trainval')
+    if args.mode == 'trainval':
+        trainer.train_val(zip(cfg.TRAIN.EPOCHS, cfg.TRAIN.LEARNING_RATES))
+    elif args.mode == 'train':
+        trainer.train(zip(cfg.TRAIN.EPOCHS, cfg.TRAIN.LEARNING_RATES))
     elif args.mode == 'val':
         trainer.evaluate()
     else:
