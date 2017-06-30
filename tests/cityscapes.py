@@ -63,7 +63,7 @@ with tf.Graph().as_default():
                 imd.rectangle(pos, outline=color)
                 imd.text(((x0 + x1) / 2, y1), label.name, fill=color)
 
-            out_dir = 'out/test/cityscapes/'
+            out_dir = 'out/tests/cityscapes/'
             if not os.path.isdir(out_dir):
                 os.makedirs(out_dir)
             im.save(os.path.join(out_dir, str(img_id_np) + '.png'))

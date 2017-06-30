@@ -64,7 +64,7 @@ with tf.Graph().as_default():
                 for i in range(anchor_boxes.shape[0]):
                     imd.rectangle(anchor_boxes[i, :])
 
-                out_dir = 'out/test/anchors/'
+                out_dir = 'out/tests/anchors/'
                 if not os.path.isdir(out_dir):
                     os.makedirs(out_dir)
                 im.save(os.path.join(out_dir, '{}__{}.png'.format(img_id_np, feat_stride)))
