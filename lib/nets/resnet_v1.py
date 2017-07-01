@@ -153,7 +153,6 @@ class resnetv1(Network):
                 this_P = slim.conv2d(this_P, 256, [3,3], stride=1,
                                      scope='C{}/refine'.format(c))
                 pyramid.append(this_P)
-        pyramid = pyramid[::-1]
         pyramid = [from_nchw(level) for level in pyramid]
         return pyramid
 
@@ -259,12 +258,14 @@ class resnetv1(Network):
                                              weights_initializer=initializer_bbox,
                                              activation_fn=None, scope='bbox_pred')
 
+            if cfg[self._mode].BBOX_REG:
+                rois = self._roi_refine_layer(rois, cls_scores, bbox_pred,
+                                              'refined_rois')
             if not is_training:
-                if cfg[self._mode].BBOX_REG:
-                    rois = self._roi_refine_layer(rois, cls_scores, bbox_pred,
-                                                  'refined_rois')
                 rois, roi_scores, cls_scores = self._mask_layer(rois, roi_scores, cls_scores,
                                                                 'testing_rois')
+            if cfg[self._mode].BBOX_REG or not is_training:
+                # crop with changed rois (subsampled and/or refined)
                 roi_crops = self._crop_rois_from_pyramid(rois, pyramid, name='roi_crops')
 
             with slim.arg_scope(resnet_arg_scope(is_training=is_training)):

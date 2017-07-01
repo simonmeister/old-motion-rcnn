@@ -47,7 +47,7 @@ with tf.Graph().as_default():
             print('image_id: {}, instances: {}, shape: {}'.format(img_id_np, num_instances_np, image_np.shape))
             image_np = np.squeeze(image_np)
 
-            for feat_stride in [4, 8, 16, 32, 64]:
+            for feat_stride in [64, 32, 16, 8, 4]:
                 anchor_boxes = generate_level_anchors(ih_np / feat_stride, iw_np / feat_stride,
                                                       feat_stride=feat_stride)
                 print(anchor_boxes.shape, ih_np / feat_stride, iw_np / feat_stride )

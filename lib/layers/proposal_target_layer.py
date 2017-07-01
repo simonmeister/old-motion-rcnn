@@ -30,22 +30,23 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, num_classes):
         rois: (T, 5) sampled rois, with T < N
         roi_scores: (T,) objectness scores
         labels: (T,) ground truth object class labels, 0 for negative example
-        bbox_targets: (T, 4) bbox regression targets, rows zero for t with labels[t] == 0
-        bbox_inside_weights: (T, 4), weight for bbox target diffs (0 for unused entries)
-        bbox_outside_weights: (T,), binary validity mask for bbox targets
+        bbox_targets: (T, num_classes * 4) bbox regression targets,
+            rows zero for t with labels[t] == 0
+        bbox_inside_weights: (T, num_classes * 4), weight for bbox target diffs,
+            0 for unused entries
+        bbox_outside_weights: (T, num_classes * 4), binary validity mask for bbox targets
         gt_assignments: (T,), batch ids of assigned ground truth boxes for each roi
     """
     all_rois = rpn_rois
     all_scores = rpn_scores
 
     # Include ground-truth boxes in the set of candidate rois
-    if cfg.TRAIN.USE_GT:
-        zeros = np.zeros((gt_boxes.shape[0], 1), dtype=gt_boxes.dtype)
-        ones = np.ones((gt_boxes.shape[0], 1), dtype=gt_boxes.dtype)
-        all_rois = np.vstack(
-            (all_rois, np.hstack((zeros, gt_boxes[:, :-1])))
-        )
-        all_scores = np.vstack((all_scores, ones))
+    zeros = np.zeros((gt_boxes.shape[0], 1), dtype=gt_boxes.dtype)
+    ones = np.ones((gt_boxes.shape[0],), dtype=gt_boxes.dtype)
+    all_rois = np.vstack(
+        (all_rois, np.hstack((zeros, gt_boxes[:, :-1])))
+    )
+    all_scores = np.concatenate((all_scores, ones), axis=0)
 
     num_images = 1
     rois_per_image = cfg.TRAIN.MAX_SAMPLED_ROIS / num_images

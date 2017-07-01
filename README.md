@@ -44,8 +44,6 @@ Visualizations are written to `out/tests`.
   [tf-faster-rcnn](https://github.com/endernewton/tf-faster-rcnn/tree/master/lib/layer_utils).
 - The code in `lib/datasets/cityscapes/cityscapesscripts` is adapted from
   [cityscapesScripts](https://github.com/mcordts/cityscapesScripts).  
-- `lib/layers/assign_boxes.py` is taken from
-  [FastMaskRCNN](https://github.com/CharlesShang/FastMaskRCNN).
 
 
 ## License

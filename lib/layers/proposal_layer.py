@@ -36,7 +36,7 @@ def proposal_layer(rpn_scores, rpn_bbox_pred, im_size, cfg_key, anchors, num_anc
     nms_thresh = cfg[cfg_key].RPN_NMS_THRESH
 
     # Get the scores and bounding boxes
-    scores = rpn_scores[:, 0:1]
+    scores = rpn_scores[:, 1]
     proposals = bbox_transform_inv(anchors, rpn_bbox_pred)
     proposals = clip_boxes(proposals, im_size)
 
@@ -55,7 +55,8 @@ def proposal_layer(rpn_scores, rpn_bbox_pred, im_size, cfg_key, anchors, num_anc
     scores = scores[order]
 
     # Non-maximal suppression
-    keep = nms(np.hstack((proposals, scores)), nms_thresh)
+    keep = nms(np.hstack((proposals, np.reshape(scores, [-1, 1]))),
+               nms_thresh)
 
     # Pick th top region proposals after NMS
     if post_nms_topN > 0:

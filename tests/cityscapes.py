@@ -22,13 +22,14 @@ from datasets.cityscapes.cityscapesscripts.labels import trainId2label
 
 
 with tf.Graph().as_default():
-    file_pattern = cfg.TFRECORD_DIR + '/cityscapes/val/*.tfrecord'
+    file_pattern = cfg.TFRECORD_DIR + '/cityscapes/train/*.tfrecord'
     tfrecords = glob.glob(file_pattern)
 
-    image, ih, iw, gt_boxes, gt_masks, num_instances, img_id = reader.read(tfrecords)
-    image, gt_boxes, gt_masks = preprocess_example(image, gt_boxes, gt_masks, is_training=True,
-                                                   normalize=False)
-    ih, iw = tf.unstack(tf.shape(image))[:2]
+    with tf.device('/cpu:0'):
+        image, ih, iw, gt_boxes, gt_masks, num_instances, img_id = reader.read(tfrecords)
+        image, gt_boxes, gt_masks = preprocess_example(image, gt_boxes, gt_masks, is_training=True,
+                                                       normalize=False)
+        ih, iw = tf.unstack(tf.shape(image))[:2]
 
     sess = tf.Session()
     init_op = tf.group(

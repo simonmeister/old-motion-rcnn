@@ -64,7 +64,6 @@ def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
 
     if not cfg.TRAIN.RPN_CLOBBER_POSITIVES:
         # assign bg labels first so that positive labels can clobber them
-        # first set the negatives
         labels[max_overlaps < cfg.TRAIN.RPN_NEGATIVE_OVERLAP] = 0
 
     # fg label: for each gt, anchor with highest overlap
@@ -86,6 +85,10 @@ def anchor_target_layer(gt_boxes, im_size, all_anchors, num_anchors):
         labels[disable_inds] = -1
 
     # subsample negative labels if we have too many
+    # TODO Maybe select the same amount of boxes from each level?
+    #   We could pass a list of anchor arrays instead to do that..
+    #   Could it otherwise learn to predict more positive for larger examples?
+    #   Or we could select at least one negative box of the same level for any pos. box of a level
     num_bg = cfg.TRAIN.RPN_BATCHSIZE - np.sum(labels == 1)
     bg_inds = np.where(labels == 0)[0]
     if len(bg_inds) > num_bg:

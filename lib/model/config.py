@@ -36,10 +36,7 @@ __C.TRAIN.DISPLAY_INTERVAL = 10
 __C.TRAIN.DOUBLE_BIAS = False
 
 # Whether to have weight decay on bias as well
-__C.TRAIN.BIAS_DECAY = False
-
-# Whether to add ground truth boxes to the pool when sampling regions
-__C.TRAIN.USE_GT = True
+__C.TRAIN.BIAS_DECAY = True
 
 # The maximum number of checkpoints stored, older ones are deleted to save space
 __C.TRAIN.CHECKPOINTS_MAX_TO_KEEP = 5
@@ -65,13 +62,13 @@ __C.TRAIN.FG_THRESH = 0.5
 # Overlap threshold for a ROI to be considered background (class = 0 if
 # overlap in [LO, HI))
 __C.TRAIN.BG_THRESH_HI = 0.5
-__C.TRAIN.BG_THRESH_LO = 0.1
+__C.TRAIN.BG_THRESH_LO = 0.05 # TODO find reasonable number - see proposal test
 
 # Use horizontally-flipped images during training?
 __C.TRAIN.USE_FLIPPED = True
 
-# Train bounding-box regressors
-__C.TRAIN.BBOX_REG = True # TODO enable = False?
+# Pass refined boxes into the mask branch during testing
+__C.TRAIN.BBOX_REG = True
 
 # Overlap required between a ROI and ground-truth box in order for that ROI to
 # be used as a bounding-box regression training example
@@ -79,12 +76,12 @@ __C.TRAIN.BBOX_THRESH = 0.5
 
 
 # Normalize the targets (subtract empirical mean, divide by empirical stddev)
-__C.TRAIN.BBOX_NORMALIZE_TARGETS = True
+__C.TRAIN.BBOX_NORMALIZE_TARGETS = False
 # Deprecated (inside weights)
 __C.TRAIN.BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
 # Normalize the targets using "precomputed" (or made up) means and stdevs
 # (BBOX_NORMALIZE_TARGETS must also be True)
-__C.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED = True
+__C.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED = False
 __C.TRAIN.BBOX_NORMALIZE_MEANS = (0.0, 0.0, 0.0, 0.0)
 __C.TRAIN.BBOX_NORMALIZE_STDS = (0.1, 0.1, 0.2, 0.2)
 
@@ -137,7 +134,7 @@ __C.TEST.SCALE = 1024
 # IoU >= this threshold)
 __C.TEST.NMS_THRESH = 0.3
 
-# Test using bounding-box regressors
+# Pass refined boxes into the mask branch during testing
 __C.TEST.BBOX_REG = True
 
 ## NMS threshold used on RPN proposals

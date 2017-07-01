@@ -17,9 +17,9 @@ def roi_refine_layer(rpn_rois, cls_scores, bbox_pred, im_size):
     deltas of the highest scoring classes.
 
     Args:
+        rpn_rois: (N, 5)
         cls_scores: (N, num_classes)
         bbox_pred: (N, num_classes * 4)
-        rpn_rois: (N, 5)
 
     Returns:
         rois: (N, 5)
@@ -28,10 +28,9 @@ def roi_refine_layer(rpn_rois, cls_scores, bbox_pred, im_size):
     num_classes = cls_scores.shape[1]
     num_rois = cls_scores.shape[0]
 
-    bbox_sel = top_classes + np.arange(num_rois) * num_classes
-    bbox_pred = np.reshape(bbox_pred, [-1, 4])
-    bbox_pred = bbox_pred[bbox_sel, :]
-    
+    bbox_pred = np.reshape(bbox_pred, [-1, num_classes, 4])
+    bbox_pred = bbox_pred[np.arange(num_rois), top_classes, :]
+
     boxes = bbox_transform_inv(rpn_rois[:, 1:], bbox_pred)
     boxes = clip_boxes(boxes, im_size)
 

@@ -223,7 +223,7 @@ class Trainer(object):
         pred_np_arrays = []
         summary_images = []
         try:
-            while not coord.should_stop():
+            while iters < 20: #not coord.should_stop():
                 loss_ops = [v for (k, v) in net._losses]
                 pred_ops = [
                     net._predictions['masks'],
@@ -255,6 +255,7 @@ class Trainer(object):
         for masks, cls_scores, rpn_scores, rois in pred_np_arrays:
             preds = []
             for i in range(masks.shape[0]):
+                print(cls_scores[i], rpn_scores[i], rois[i, :])
                 train_id = np.argmax(cls_scores[i])
                 if train_id == 0:
                     # Ignore background class

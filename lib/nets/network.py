@@ -17,7 +17,7 @@ from layers.proposal_top_layer import proposal_top_layer
 from layers.anchor_target_layer import anchor_target_layer
 from layers.proposal_target_layer import proposal_target_layer
 from layers.generate_level_anchors import generate_level_anchors
-from layers.assign_boxes import assign_boxes
+from layers.assign_to_levels import assign_to_levels
 from layers.mask_layer import mask_layer
 from layers.roi_refine_layer import roi_refine_layer
 from layers.mask_util import color_mask
@@ -27,8 +27,8 @@ from model.config import cfg
 
 class Network(object):
     def __init__(self, input_batch, is_training, num_classes):
-        self._pyramid_strides = [4, 8, 16, 32, 64]
-        self._pyramid_indices = [2, 3, 4, 5, 6]
+        self._pyramid_strides = [64, 32, 16, 8, 4]
+        self._pyramid_indices = [6, 5, 4, 3, 2]
         self._batch_size = 1
         self._predictions = {}
         self._losses = {}
@@ -112,8 +112,6 @@ class Network(object):
             y1 = rois[:, 2] / height
             x2 = rois[:, 3] / width
             y2 = rois[:, 4] / height
-            # Won't be backpropagated to boxes anyway, but to save time # TODO verify
-            # boxes = tf.stop_gradient(tf.stack([y1, x1, y2, x2], axis=1))
             boxes = tf.stack([y1, x1, y2, x2], axis=1)
             crops = tf.image.crop_and_resize(image, boxes,
                                              tf.to_int32(batch_ids),
@@ -121,10 +119,11 @@ class Network(object):
                                              name='crops')
         return crops
 
-    def _assign_boxes(self, boxes):
-        assignments, = tf.py_func(assign_boxes,
-                                  [boxes, self._pyramid_indices[0], self._pyramid_indices[-1]],
-                                  [tf.int32], name='assign_boxes')
+    def _assign_to_levels(self, boxes):
+        assignments, = tf.py_func(assign_to_levels,
+                                  [boxes, self._im_size, len(self._pyramid_strides),
+                                   self._pyramid_strides[-1]],
+                                  [tf.int32], name='assign_to_levels')
 
         assignments.set_shape([None])
 
@@ -133,11 +132,11 @@ class Network(object):
     def _crop_rois_from_pyramid(self, rois, pyramid, name):
         """rois is (N, 5), where first entry is batch"""
         with tf.variable_scope(name) as scope:
-            level_assignments = self._assign_boxes(rois[:, 1:])
+            level_assignments = self._assign_to_levels(rois[:, 1:])
             reordered_roi_crops = []
             reordered_indices = []
 
-            for i, level in zip(self._pyramid_indices, pyramid):
+            for i, level in enumerate(pyramid):
                 indices = tf.where(tf.equal(level_assignments, i))[:, 0]
                 reordered_rois = tf.gather(rois, indices)
                 roi_crops = self._crop_rois(level, reordered_rois,
