@@ -32,7 +32,8 @@ def normalize_image(image):
 
 def _resize_gt_masks(gt_masks, height, width):
     gt_masks = tf.expand_dims(gt_masks, -1)
-    gt_masks = tf.image.resize_nearest_neighbor(gt_masks, [height, width])
+    gt_masks = tf.image.resize_bilinear(gt_masks, [height, width])
+    gt_masks = tf.to_float(gt_masks > 0.5)
     gt_masks = tf.squeeze(gt_masks, axis=[-1])
     return gt_masks
 

@@ -68,7 +68,8 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, gt_masks, num_classes)
                            int(round(roi[1])):int(round(roi[3]))+1,
                            int(round(roi[0])):int(round(roi[2]))+1,
                            0]
-        gt_crop = cv2.resize(gt_crop, (28, 28), interpolation=cv2.INTER_NEAREST)
+        gt_crop = cv2.resize(gt_crop, (28, 28), interpolation=cv2.INTER_LINEAR)
+        gt_crop = (gt_crop > 0.5).astype(np.float32)
         mask_targets.append(np.expand_dims(np.expand_dims(gt_crop, axis=0), axis=3))
     mask_targets = np.concatenate(mask_targets, axis=0)
     mask_targets = mask_targets.astype(np.float32)

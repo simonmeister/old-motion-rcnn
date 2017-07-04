@@ -103,6 +103,23 @@ with tf.Graph().as_default():
             fg = np.where(labels != 0)[0]
             print('fg: {}, bg: {}, target mean: {}'.format(len(fg), len(bg), np.mean(bbox_targets)))
 
+
+            # this also works (if we return gt_assignment instead of mask_targets from prop. target layer)
+            # height = tf.to_float(ih_np)
+            # width = tf.to_float(iw_np)
+            # x1 = rois[:, 1] / width
+            # y1 = rois[:, 2] / height
+            # x2 = rois[:, 3] / width
+            # y2 = rois[:, 4] / height
+            # boxes = tf.stack([y1, x1, y2, x2], axis=1)
+            # crops = tf.image.crop_and_resize(np.expand_dims(gt_masks_np, axis=3), boxes,
+            #                                  tf.to_int32(gt_assignment),
+            #                                  [28, 28],
+            #                                  name='crops')
+            # crops = tf.to_float(crops > 0.5)
+            # crops = sess.run(crops)
+
+
             cls_scores = np.zeros([len(rois), NUM_TRAIN_CLASSES])
             cls_scores[np.arange(len(rois)), labels.astype(int)] = 1.0
             rois = roi_refine_layer(rois, cls_scores, bbox_targets, [ih_np, iw_np])

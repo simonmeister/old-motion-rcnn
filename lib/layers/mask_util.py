@@ -77,7 +77,7 @@ def color_mask(rois, classes, mask_preds, height, width):
         w = int(round(boxes[i, 2]) - round(boxes[i, 0]) + 1)
         x = int(round(boxes[i, 0]))
         y = int(round(boxes[i, 1]))
-        m = cv2.resize(m, (w, h), interpolation=cv2.INTER_NEAREST)
+        m = cv2.resize(m, (w, h), interpolation=cv2.INTER_LINEAR)
         m = np.expand_dims(m, axis=2) * color
         mask[y:(y + h), x:(x + w)] += m
 
