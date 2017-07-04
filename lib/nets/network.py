@@ -249,11 +249,11 @@ class Network(object):
     def _proposal_target_layer(self, rois, roi_scores, name):
         with tf.variable_scope(name) as scope:
             rois, roi_scores, labels, bbox_targets, bbox_inside_weights, \
-                bbox_outside_weights, gt_assignments = tf.py_func(
+                bbox_outside_weights, mask_targets = tf.py_func(
                     proposal_target_layer,
-                    [rois, roi_scores, self._gt_boxes, self._num_classes],
+                    [rois, roi_scores, self._gt_boxes, self._gt_masks, self._num_classes],
                     [tf.float32, tf.float32, tf.float32, tf.float32, tf.float32, tf.float32,
-                     tf.int32])
+                     tf.float32])
 
             rois.set_shape([None, 5])
             roi_scores.set_shape([None])
@@ -262,17 +262,17 @@ class Network(object):
             bbox_inside_weights.set_shape([None, self._num_classes * 4])
             bbox_outside_weights.set_shape([None, self._num_classes * 4])
 
-            gt_crops = self._crop_rois(self._gt_masks, rois,
-                                       batch_ids=gt_assignments,
-                                       resized_height=28, resized_width=28,
-                                       name='gt_crops')
+            #gt_crops = self._crop_rois(self._gt_masks, rois,
+            #                           batch_ids=gt_assignments,
+            #                           resized_height=28, resized_width=28,
+            #                           name='gt_crops')
 
             self._proposal_targets['rois'] = rois
             self._proposal_targets['labels'] = tf.to_int32(labels, name='to_int32')
             self._proposal_targets['bbox_targets'] = bbox_targets
             self._proposal_targets['bbox_inside_weights'] = bbox_inside_weights
             self._proposal_targets['bbox_outside_weights'] = bbox_outside_weights
-            self._proposal_targets['mask_targets'] = tf.to_float(gt_crops)
+            self._proposal_targets['mask_targets'] = mask_targets
 
             self._score_summaries.update(self._proposal_targets)
 
@@ -410,9 +410,9 @@ class Network(object):
         assert image.get_shape()[0] == 1
         boxes = tf.expand_dims(boxes, dim=0)
         image = tf.image.draw_bounding_boxes(image, boxes)
-        #color_mask = self._color_mask(rois, classes, masks,
-        #                              *tf.unstack(tf.shape(image))[1:3])
-        #image = image + 0.4 * color_mask
+        color_mask = self._color_mask(rois, classes, masks,
+                                      *tf.unstack(tf.shape(image))[1:3])
+        image = image + 0.4 * color_mask
         return image
 
     def _add_act_summary(self, tensor):

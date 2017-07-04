@@ -51,7 +51,7 @@ __C.TRAIN.SCALE = [800, 1024]
 
 # Minibatch size (number of regions of interest [ROIs])
 # Maximum number of rois after sampling with ground truth
-__C.TRAIN.MAX_SAMPLED_ROIS = 512
+__C.TRAIN.MAX_SAMPLED_ROIS = 256 # TODO 512? Could be a memory issue..
 
 # Fraction of minibatch that is labeled foreground (i.e. class > 0)
 __C.TRAIN.FG_FRACTION = 0.25
@@ -62,7 +62,7 @@ __C.TRAIN.FG_THRESH = 0.5
 # Overlap threshold for a ROI to be considered background (class = 0 if
 # overlap in [LO, HI))
 __C.TRAIN.BG_THRESH_HI = 0.5
-__C.TRAIN.BG_THRESH_LO = 0.05 # TODO find reasonable number - see proposal test
+__C.TRAIN.BG_THRESH_LO = 0.1 # TODO find reasonable number - see proposal test
 
 # Use horizontally-flipped images during training?
 __C.TRAIN.USE_FLIPPED = True

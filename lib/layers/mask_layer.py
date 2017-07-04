@@ -14,10 +14,6 @@ from model.config import cfg
 def mask_layer(rois, roi_scores, cls_scores, cfg_key): # TODO rename this layer
     """Returns (score-ordered) rois and scores for mask_branch.
 
-    Note that one ground truth box can be assigned to multiple rois.
-    The final targets will still differ in how the ground truth masks
-    are cropped with the roi bounding box.
-
     Args:
         rois: (T, 5)
         roi_scores: (T,)
@@ -33,7 +29,8 @@ def mask_layer(rois, roi_scores, cls_scores, cfg_key): # TODO rename this layer
     nms_thresh = cfg.TEST.NMS_THRESH
 
     # Non-maximal suppression
-    keep = nms(np.hstack((rois[:, 1:], roi_scores)), nms_thresh)
+    keep = nms(np.hstack((rois[:, 1:], np.reshape(roi_scores, [-1, 1]))),
+               nms_thresh)
     rois = rois[keep, :]
     roi_scores = roi_scores[keep]
     cls_scores = cls_scores[keep, :]

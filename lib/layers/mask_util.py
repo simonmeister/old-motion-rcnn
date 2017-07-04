@@ -67,18 +67,18 @@ def color_mask(rois, classes, mask_preds, height, width):
         masks: (height, width, 3)
     """
     mask = np.zeros((height, width, 3), dtype=np.float32)
-    rois = clip_boxes(rois, (height, width))
+    boxes = clip_boxes(rois[:, 1:], (height, width))
 
     for i in range(rois.shape[0]):
         m = mask_preds[i, :, :, 0]
         color = trainId2label[int(classes[i])].color
 
-        h = int(rois[i, 4] - rois[i, 2] + 1) # TODO round and cast to int
-        w = int(rois[i, 3] - rois[i, 1] + 1)
-        x = int(rois[i, 1])
-        y = int(rois[i, 2])
-        m = cv2.resize(m, (w, h), interpolation=cv2.INTER_LINEAR)
-        m *= color
-        mask[y:(y + h), x:(x + w)] = m
+        h = int(round(boxes[i, 3]) - round(boxes[i, 1]) + 1)
+        w = int(round(boxes[i, 2]) - round(boxes[i, 0]) + 1)
+        x = int(round(boxes[i, 0]))
+        y = int(round(boxes[i, 1]))
+        m = cv2.resize(m, (w, h), interpolation=cv2.INTER_NEAREST)
+        m = np.expand_dims(m, axis=2) * color
+        mask[y:(y + h), x:(x + w)] += m
 
     return mask

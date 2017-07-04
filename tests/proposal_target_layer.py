@@ -22,13 +22,18 @@ from datasets import reader
 from datasets.preprocess import preprocess_example
 from datasets.cityscapes.cityscapesscripts.labels import trainId2label
 from datasets.cityscapes.cityscapesscripts.labels import NUM_TRAIN_CLASSES
-from boxes.bbox_transform import bbox_transform_inv
+from boxes.bbox_transform import bbox_transform_inv, clip_boxes
 
-# all of these layers have to work in order for the test to work
 from layers.generate_level_anchors import generate_level_anchors
 from layers.anchor_target_layer import anchor_target_layer
 from layers.proposal_target_layer import proposal_target_layer
 from layers.roi_refine_layer import roi_refine_layer
+from layers.mask_util import color_mask
+
+
+# Set to True to visualize mask targets.
+# Set to False to verify bbox targets for negative and positive examples.
+GT_BOXES_ONLY = True
 
 
 with tf.Graph().as_default():
@@ -53,6 +58,8 @@ with tf.Graph().as_default():
 
         out_dir = 'out/tests/proposal_target_layer/'
         shutil.rmtree(out_dir, ignore_errors=True)
+        if not os.path.isdir(out_dir):
+            os.makedirs(out_dir)
 
         for i in range(10):
             image_np, ih_np, iw_np, gt_boxes_np, gt_masks_np, num_instances_np, img_id_np = \
@@ -78,23 +85,34 @@ with tf.Graph().as_default():
             roi_num = cfg.TRAIN.RPN_POST_NMS_TOP_N
             ignored = np.random.choice(
                 np.arange(len(ignored)), size=roi_num-num, replace=False)
-            indices = np.concatenate([positive, negative, ignored], axis=0)
-            input_rois = np.hstack([np.zeros([len(indices), 1]), anchors[indices, :]])
+            if GT_BOXES_ONLY:
+                indices = []
+            else:
+                indices = np.concatenate([positive, negative, ignored], axis=0)
+            input_rois = clip_boxes(anchors[indices, :], [ih_np, iw_np])
+            input_rois = np.hstack([np.zeros([len(indices), 1]), input_rois])
             input_scores = np.arange(len(indices))
 
             rois, roi_scores, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights, \
-                gt_assignment = \
-                    proposal_target_layer(input_rois, input_scores, gt_boxes_np, NUM_TRAIN_CLASSES)
+                crops = \
+                    proposal_target_layer(input_rois, input_scores, gt_boxes_np,
+                                          np.expand_dims(gt_masks_np, axis=3),
+                                          NUM_TRAIN_CLASSES)
             assert np.sum(rois[:, 0]) == 0
             bg = np.where(labels == 0)[0]
             fg = np.where(labels != 0)[0]
-            print('fg: {}, bg: {}'.format(len(fg), len(bg)))
+            print('fg: {}, bg: {}, target mean: {}'.format(len(fg), len(bg), np.mean(bbox_targets)))
 
             cls_scores = np.zeros([len(rois), NUM_TRAIN_CLASSES])
             cls_scores[np.arange(len(rois)), labels.astype(int)] = 1.0
             rois = roi_refine_layer(rois, cls_scores, bbox_targets, [ih_np, iw_np])
             bboxes = rois[:, 1:]
             assert np.sum(rois[:, 0]) == 0
+
+            if GT_BOXES_ONLY:
+                filled = color_mask(rois, labels, crops, ih_np, iw_np)
+                print(np.max(image_np), np.max(filled))
+                image_np += 0.5 * filled
 
             im = Image.fromarray(image_np.astype(np.uint8))
             imd = ImageDraw.Draw(im)
@@ -112,7 +130,6 @@ with tf.Graph().as_default():
                 assert np.sum(bbox_inside_weights[i, :] - weights) == 0
                 weights[4*clas:4*(clas+1)] = 1.0
                 assert np.sum(bbox_outside_weights[i, :] - weights) == 0
-                # gt_assignment
             for k in range(bg.shape[0]):
                 i = bg[k]
                 imd.rectangle(bboxes[i, :], outline='red')
@@ -124,15 +141,6 @@ with tf.Graph().as_default():
                 assert np.sum(bbox_outside_weights[i, :] - weights) == 0
                 assert np.sum(bbox_outside_weights[i, :] - weights) == 0
 
-            #for i in rois.shape[0]:
-                # test bbox_targets zero elsewhere
-            #    assert bbox_targets[]
-
-
-
-
-            if not os.path.isdir(out_dir):
-                os.makedirs(out_dir)
             im.save(os.path.join(out_dir, '{}.png'.format(img_id_np)))
 
         sess.close()

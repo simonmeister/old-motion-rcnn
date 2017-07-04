@@ -13,9 +13,10 @@ import numpy.random as npr
 from model.config import cfg
 from boxes.bbox_transform import bbox_transform
 from boxes.cython_bbox import bbox_overlaps
+import cv2
 
 
-def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, num_classes):
+def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, gt_masks, num_classes):
     """Assigns object detection proposals to ground-truth targets. Produces proposal
     classification labels and bounding-box regression targets after sampling with ground truth
     boxes.
@@ -35,7 +36,7 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, num_classes):
         bbox_inside_weights: (T, num_classes * 4), weight for bbox target diffs,
             0 for unused entries
         bbox_outside_weights: (T, num_classes * 4), binary validity mask for bbox targets
-        gt_assignments: (T,), batch ids of assigned ground truth boxes for each roi
+        mask_targets: (T, 28, 28, 1), regression targets for masks
     """
     all_rois = rpn_rois
     all_scores = rpn_scores
@@ -59,10 +60,21 @@ def proposal_target_layer(rpn_rois, rpn_scores, gt_boxes, num_classes):
         rois_per_image, num_classes)
 
     bbox_outside_weights = np.array(bbox_inside_weights > 0).astype(np.float32)
-    gt_assignment = gt_assignment.astype(np.int32)
+
+    mask_targets = []
+    for i in range(rois.shape[0]):
+        roi = rois[i, 1:]
+        gt_crop = gt_masks[gt_assignment[i],
+                           int(round(roi[1])):int(round(roi[3]))+1,
+                           int(round(roi[0])):int(round(roi[2]))+1,
+                           0]
+        gt_crop = cv2.resize(gt_crop, (28, 28), interpolation=cv2.INTER_NEAREST)
+        mask_targets.append(np.expand_dims(np.expand_dims(gt_crop, axis=0), axis=3))
+    mask_targets = np.concatenate(mask_targets, axis=0)
+    mask_targets = mask_targets.astype(np.float32)
 
     return rois, roi_scores, labels, bbox_targets, bbox_inside_weights, bbox_outside_weights, \
-        gt_assignment
+        mask_targets
 
 
 def _get_bbox_regression_labels(bbox_target_data, num_classes):
