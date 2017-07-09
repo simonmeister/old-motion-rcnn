@@ -37,4 +37,6 @@ def roi_refine_layer(rpn_rois, cls_scores, bbox_pred, im_size):
     # Only support single image as input
     batch_inds = np.zeros((boxes.shape[0], 1), dtype=np.float32)
     rois = np.hstack((batch_inds, boxes.astype(np.float32, copy=False)))
+
+    #import pdb; pdb.set_trace()
     return rois

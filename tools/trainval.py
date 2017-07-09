@@ -10,11 +10,11 @@ import shutil
 import tensorflow as tf
 
 import _init_paths
-from datasets.cityscapes.cityscapesscripts.labels import NUM_TRAIN_CLASSES
 from datasets.batch import get_batch
 from model.trainer import Trainer
 from model.config import cfg, cfg_from_file, cfg_from_list, write_cfg_to_file
 from nets.resnet_v1 import resnetv1
+from datasets.cityscapes.cityscapesscripts.labels import NUM_TRAIN_CLASSES
 
 
 def parse_args():
@@ -92,15 +92,14 @@ if __name__ == '__main__':
 
 
     dataset = Dataset()
-    dataset.num_classes = NUM_TRAIN_CLASSES
 
     dataset.get_train_batch = lambda epochs: get_batch(
         args.dataset, args.train_split, cfg.TFRECORD_DIR,
-        is_training=True, epochs=epochs)
+        num_classes=NUM_TRAIN_CLASSES, is_training=True, epochs=epochs)
 
     dataset.get_val_batch = lambda: get_batch(
         args.dataset, args.val_split, cfg.TFRECORD_DIR,
-        is_training=False, epochs=1)
+        num_classes=NUM_TRAIN_CLASSES, is_training=False, epochs=1)
 
     trainer = Trainer(resnetv1, dataset,
                       pretrained_model='data/models/resnet_v1_50.ckpt',

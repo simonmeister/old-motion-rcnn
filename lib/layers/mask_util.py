@@ -48,6 +48,7 @@ def binary_mask(roi, mask_pred, height, width):
     x = int(roi[1])
     y = int(roi[2])
     mask = cv2.resize(mask_pred, (w, h), interpolation=cv2.INTER_LINEAR)
+    mask = (mask >= 0.5).astype(np.float32)
     out[y:(y + h), x:(x + w)] = mask
     return out
 
@@ -78,6 +79,7 @@ def color_mask(rois, classes, mask_preds, height, width):
         x = int(round(boxes[i, 0]))
         y = int(round(boxes[i, 1]))
         m = cv2.resize(m, (w, h), interpolation=cv2.INTER_LINEAR)
+        m = (m >= 0.5).astype(np.float32)
         m = np.expand_dims(m, axis=2) * color
         mask[y:(y + h), x:(x + w)] += m
 

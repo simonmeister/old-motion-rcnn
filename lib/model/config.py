@@ -20,27 +20,22 @@ cfg = __C
 __C.TRAIN = edict()
 
 # Training schedule
-__C.TRAIN.LEARNING_RATES = [0.002, 0.001]
-__C.TRAIN.EPOCHS = [50, 25]
+__C.TRAIN.LEARNING_RATES = [0.01, 0.001]
+__C.TRAIN.EPOCHS = [24, 18]
 
 # Momentum
 __C.TRAIN.MOMENTUM = 0.9
-
 # Weight decay, for regularization
 __C.TRAIN.WEIGHT_DECAY = 0.0005
-
-# Iteration intervals for showing the loss during training, on command line interface
-__C.TRAIN.DISPLAY_INTERVAL = 10
-
 # Whether to double the learning rate for bias
 __C.TRAIN.DOUBLE_BIAS = False
-
 # Whether to have weight decay on bias as well
 __C.TRAIN.BIAS_DECAY = True
 
+# Iteration intervals for showing the loss during training, on command line interface
+__C.TRAIN.DISPLAY_INTERVAL = 10
 # The maximum number of checkpoints stored, older ones are deleted to save space
 __C.TRAIN.CHECKPOINTS_MAX_TO_KEEP = 5
-
 # The iteration interval for saving tensorflow summaries
 __C.TRAIN.SUMMARY_INTERVAL = 10
 
@@ -48,32 +43,30 @@ __C.TRAIN.SUMMARY_INTERVAL = 10
 # The scale is the pixel size of an image's shortest side
 # Can be a single number or a tuple with min/max for random scale sampling
 __C.TRAIN.SCALE = [800, 1024]
+# Use horizontally-flipped images during training?
+__C.TRAIN.USE_FLIPPED = True
+
+# Minimum amount of examples in a shuffle queue, more means better shuffling
+__C.TRAIN.MIN_EXAMPLES_AFTER_DEQUEUE = 50
+# Number of examples in one epoch.
+# For cityscapes, this is the number of examples in the train split.
+__C.TRAIN.EXAMPLES_PER_EPOCH = 2965
 
 # Minibatch size (number of regions of interest [ROIs])
 # Maximum number of rois after sampling with ground truth
 __C.TRAIN.MAX_SAMPLED_ROIS = 256 # TODO 512? Could be a memory issue..
-
 # Fraction of minibatch that is labeled foreground (i.e. class > 0)
 __C.TRAIN.FG_FRACTION = 0.25
-
 # Overlap threshold for a ROI to be considered foreground (if >= FG_THRESH)
 __C.TRAIN.FG_THRESH = 0.5
-
 # Overlap threshold for a ROI to be considered background (class = 0 if
 # overlap in [LO, HI))
 __C.TRAIN.BG_THRESH_HI = 0.5
-__C.TRAIN.BG_THRESH_LO = 0.1 # TODO find reasonable number - see proposal test
-
-# Use horizontally-flipped images during training?
-__C.TRAIN.USE_FLIPPED = True
-
-# Pass refined boxes into the mask branch during testing
-__C.TRAIN.BBOX_REG = True
+__C.TRAIN.BG_THRESH_LO = 0.1
 
 # Overlap required between a ROI and ground-truth box in order for that ROI to
 # be used as a bounding-box regression training example
 __C.TRAIN.BBOX_THRESH = 0.5
-
 
 # Normalize the targets (subtract empirical mean, divide by empirical stddev)
 __C.TRAIN.BBOX_NORMALIZE_TARGETS = False
@@ -85,9 +78,6 @@ __C.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED = False
 __C.TRAIN.BBOX_NORMALIZE_MEANS = (0.0, 0.0, 0.0, 0.0)
 __C.TRAIN.BBOX_NORMALIZE_STDS = (0.1, 0.1, 0.2, 0.2)
 
-# Make minibatches from images that have similar aspect ratios (i.e. both
-# tall and thin or both short and wide) in order to avoid wasting computation
-# on zero-padding.
 
 # IOU >= thresh: positive example
 __C.TRAIN.RPN_POSITIVE_OVERLAP = 0.7
@@ -98,7 +88,7 @@ __C.TRAIN.RPN_CLOBBER_POSITIVES = False
 # Max number of foreground examples
 __C.TRAIN.RPN_FG_FRACTION = 0.5
 # Maximum number of anchor targets for rpn training
-__C.TRAIN.RPN_BATCHSIZE = 256
+__C.TRAIN.RPN_BATCHSIZE = 512
 # NMS threshold used on RPN proposals
 __C.TRAIN.RPN_NMS_THRESH = 0.7
 # Number of top scoring boxes to keep before apply NMS to RPN proposals
@@ -114,12 +104,20 @@ __C.TRAIN.RPN_BBOX_INSIDE_WEIGHTS = (1.0, 1.0, 1.0, 1.0)
 # Set to -1.0 to use uniform example weighting
 __C.TRAIN.RPN_POSITIVE_WEIGHT = -1.0
 
-# Minimum amount of examples in a shuffle queue, more means better shuffling
-__C.TRAIN.MIN_EXAMPLES_AFTER_DEQUEUE = 50
 
-# Number of examples in one epoch.
-# For cityscapes, this is the number of examples in the train split.
-__C.TRAIN.EXAMPLES_PER_EPOCH = 2965
+# Train the RPN (bbox regression & objectness scores)
+__C.TRAIN.RPN = False
+# Train Motion R-CNN components (global depth & camera motion prediction)
+__C.TRAIN.MOTION = True
+# Train R-CNN heads (refined bbox regression, object classification, object motion)
+__C.TRAIN.RCNN = False
+# Whether to add a depth supervision loss when training Motion R-CNN
+__C.TRAIN.SUPERVISE_DEPTH = True
+# Whether to predict 1/z to allow representing points at infinity
+__C.TRAIN.INVERSE_DEPTH = False
+
+# __C.TRAIN.SUPERVISE_CAMERA = True
+
 
 #
 # Testing options
@@ -135,13 +133,12 @@ __C.TEST.SCALE = 1024
 __C.TEST.NMS_THRESH = 0.3
 
 # Pass refined boxes into the mask branch during testing
-__C.TEST.BBOX_REG = True
+__C.TEST.BBOX_REG = False
 
 ## NMS threshold used on RPN proposals
 __C.TEST.RPN_NMS_THRESH = 0.7
 ## Number of top scoring boxes to keep before apply NMS to RPN proposals
 __C.TEST.RPN_PRE_NMS_TOP_N = 6000
-
 ## Number of top scoring boxes to keep after applying NMS to RPN proposals
 __C.TEST.RPN_POST_NMS_TOP_N = 1000
 
@@ -151,13 +148,6 @@ __C.TEST.POST_NMS_TOP_N = 100
 # Proposal height and width both need to be greater than RPN_MIN_SIZE (at orig image scale)
 # __C.TEST.RPN_MIN_SIZE = 16
 
-# Testing mode, default to be 'nms', 'top' is slower but better
-# See report for details
-__C.TEST.MODE = 'nms'
-
-# Only useful when TEST.MODE is 'top', specifies the number of top proposals to select
-__C.TEST.RPN_TOP_N = 5000
-
 # Maximum number of examples for which to write tensorboard image summaries
 # during evaluation.
 __C.TEST.MAX_SUMMARY_IMAGES = 20
@@ -165,12 +155,7 @@ __C.TEST.MAX_SUMMARY_IMAGES = 20
 #
 # ResNet options
 #
-
 __C.RESNET = edict()
-
-# Whether to tune the batch nomalization parameters during training
-__C.RESNET.BN_TRAIN = True
-
 # Use more efficient NCHW format for cudnn convolutions.
 __C.RESNET.USE_NCHW = True
 
@@ -212,8 +197,6 @@ __C.EXAMPLES_PER_TFRECORD = 500
 __C.LOG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'out', 'logs'))
 __C.CONFIG_DIR = osp.abspath(osp.join(__C.ROOT_DIR, 'out', 'cfgs'))
 
-# Name (or path to) the matlab executable
-__C.MATLAB = 'matlab'
 
 # Use GPU implementation of non-maximum suppression
 __C.USE_GPU_NMS = True
@@ -242,7 +225,8 @@ def _merge_a_into_b(a, b):
     for k, v in a.items():
         # a must specify keys that are in b
         if k not in b:
-            raise KeyError('{} is not a valid config key'.format(k))
+            continue
+            # raise KeyError('{} is not a valid config key'.format(k))
 
         # the types must match, too
         old_type = type(b[k])

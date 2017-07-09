@@ -36,7 +36,7 @@ def resnet_arg_scope(is_training=True,
         'decay': batch_norm_decay,
         'epsilon': batch_norm_epsilon,
         'scale': batch_norm_scale,
-        'trainable': cfg.RESNET.BN_TRAIN,
+        'trainable': True,
         'data_format': data_format,
         'fused': True
     }
@@ -145,12 +145,12 @@ class resnetv1(Network):
                 up_shape = [up_shape[2], up_shape[3]] if is_nchw else [up_shape[1], up_shape[2]]
                 prev_P_up = tf.image.resize_bilinear(from_nchw(prev_P), up_shape,
                                                      name='C{}/upscale'.format(c))
-                this_C_adapted = slim.conv2d(this_C, 256, [1,1], stride=1,
+                this_C_adapted = slim.conv2d(this_C, 256, [1, 1], stride=1,
                                              scope='C{}'.format(c))
 
                 this_P = tf.add(to_nchw(prev_P_up), this_C_adapted,
                                 name='C{}/add'.format(c))
-                this_P = slim.conv2d(this_P, 256, [3,3], stride=1,
+                this_P = slim.conv2d(this_P, 256, [3, 3], stride=1,
                                      scope='C{}/refine'.format(c))
                 pyramid.append(this_P)
         pyramid = [from_nchw(level) for level in pyramid]
@@ -184,7 +184,7 @@ class resnetv1(Network):
 
         with slim.arg_scope(resnet_arg_scope(is_training=is_training)):
             net_conv4, end_points = resnet_v1_50(
-                to_nchw(self._image),
+                to_nchw(self._input['image']),
                 is_training=is_training,
                 scope=self._resnet_scope)
             pyramid = self._build_pyramid(end_points)
@@ -200,8 +200,7 @@ class resnetv1(Network):
                 with tf.variable_scope(level_name):
                     with slim.arg_scope(resnet_arg_scope(is_training=is_training)):
                         rpn = slim.conv2d(to_nchw(level), 256, [3, 3],
-                                          trainable=is_training,
-                                          weights_initializer=initializer,
+                                          activation_fn=tf.nn.relu,
                                           scope='rpn')
 
                         rpn_logits = slim.conv2d(rpn, self._num_anchors * 2, [1, 1],
@@ -235,12 +234,7 @@ class resnetv1(Network):
                     rois, roi_scores = self._proposal_target_layer(rois, roi_scores, 'rpn_rois')
                 # roi_scores is now a single number (the positive score after softmax)
             else:
-                if cfg.TEST.MODE == 'nms':
-                    rois, roi_scores = self._proposal_layer(rpn_scores, rpn_bbox_pred, 'rois')
-                elif cfg.TEST.MODE == 'top':
-                    rois, roi_scores = self._proposal_top_layer(rpn_scores, rpn_bbox_pred, 'rois')
-                else:
-                    raise NotImplementedError
+                rois, roi_scores = self._proposal_layer(rpn_scores, rpn_bbox_pred, 'rois')
 
             # all 14x14 roi crops
             roi_crops = self._crop_rois_from_pyramid(rois, pyramid, 'roi_crops')
@@ -251,7 +245,6 @@ class resnetv1(Network):
                                              activation_fn=None,
                                              scope='cls_logits')
             cls_scores = tf.nn.softmax(cls_logits, dim=1, name='cls_scores')
-            classes = tf.argmax(cls_scores, axis=1)
 
             bbox_pred = slim.fully_connected(fc_roi_features,
                                              self._num_classes * 4,
@@ -259,18 +252,32 @@ class resnetv1(Network):
                                              activation_fn=None, scope='bbox_pred')
 
             if not is_training:
-                if cfg[self._mode].BBOX_REG:
+                if cfg.TEST.BBOX_REG:
                     rois = self._roi_refine_layer(rois, cls_scores, bbox_pred,
                                                   'refined_rois')
-                rois, roi_scores, cls_scores = self._mask_layer(rois, roi_scores, cls_scores,
+                rois, roi_scores, cls_scores = self._test_layer(rois, roi_scores, cls_scores,
                                                                 'testing_rois')
                 # crop with changed rois (subsampled and/or refined)
                 roi_crops = self._crop_rois_from_pyramid(rois, pyramid, name='roi_crops')
 
             with slim.arg_scope(resnet_arg_scope(is_training=is_training)):
                 mask_logits = self._mask_head(roi_crops)
+
             mask_scores = tf.sigmoid(mask_logits, name='mask_scores')
-            masks = tf.to_float(mask_scores >= 0.5, name='masks')
+            #masks = tf.to_float(mask_scores >= 0.5, name='masks')
+
+            classes = tf.argmax(cls_scores, axis=1)
+
+        with tf.variable_scope('motion'):
+            with slim.arg_scope(resnet_arg_scope(is_training=is_training)):
+                depth_pred = slim.conv2d(to_nchw(pyramid[-1]), 1, [3, 3],
+                                         weights_initializer=initializer,
+                                         activation_fn=None,
+                                         scope='depth_pred')
+                depth_pred = tf.image.resize_bilinear(from_nchw(depth_pred),
+                                                      self._input['size'],
+                                                      name='depth_pred_up')
+
 
         self._predictions['rpn_logits'] = rpn_logits
         self._predictions['rpn_scores'] = rpn_scores
@@ -279,10 +286,11 @@ class resnetv1(Network):
         self._predictions['bbox_pred'] = bbox_pred
         self._predictions['rois'] = rois
         self._predictions['mask_logits'] = mask_logits
-        self._predictions['mask_scores'] = masks
-        self._predictions['masks'] = masks
+        self._predictions['mask_scores'] = mask_scores
+        #self._predictions['masks'] = masks
         self._predictions['classes'] = classes
         self._predictions['scores'] = roi_scores
+        self._predictions['depth_pred'] = depth_pred
 
         if is_training:
             self._predictions['cls_logits'] = cls_logits

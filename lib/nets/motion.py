@@ -10,7 +10,7 @@ import tensorflow as tf
 from nets.utils import crop_rois
 
 
-# TODO adapt for batches of images!
+# TODO adapt for batches of images?
 
 # takes filtered boxes/masks + results
 def flow_from_motions(boxes, masks, depth, motions):

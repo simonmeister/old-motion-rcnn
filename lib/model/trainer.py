@@ -67,9 +67,7 @@ class Trainer(object):
         with tf.device('/cpu:0'):
             batch = self.dataset.get_train_batch(total_epochs)
 
-        net = self.network_cls(batch,
-                               is_training=True,
-                               num_classes=self.dataset.num_classes)
+        net = self.network_cls(batch, is_training=True)
 
         train_op, lr_placeholder = self._get_train_op(net)
 
@@ -203,10 +201,8 @@ class Trainer(object):
         epoch = int(ckpt_path.split('/')[-1].split('-')[-1])
         with tf.device('/cpu:0'):
             batch = self.dataset.get_val_batch()
-        image = batch[0]
-        net = self.network_cls(batch,
-                               is_training=False,
-                               num_classes=self.dataset.num_classes)
+        image = batch['image']
+        net = self.network_cls(batch, is_training=False)
 
         sess.run(tf.local_variables_initializer())
         sess.run(tf.global_variables_initializer())
@@ -222,11 +218,12 @@ class Trainer(object):
         avg_losses = np.zeros([len(net._losses)])
         pred_np_arrays = []
         summary_images = []
+        #depths = []
         try:
-            while iters < 20: #not coord.should_stop():
+            while iters < 3: #not coord.should_stop():
                 loss_ops = [v for (k, v) in net._losses]
                 pred_ops = [
-                    net._predictions['masks'],
+                    net._predictions['mask_scores'],
                     net._predictions['cls_scores'],
                     net._predictions['scores'],
                     net._predictions['rois']
@@ -240,6 +237,7 @@ class Trainer(object):
                 avg_losses += loss_results
                 pred_np_arrays.append(pred_results)
                 summary_images.append(summary_image_np)
+                #depths.append(depth)
                 iters += 1
 
                 print("\rPredicted: {}".format(iters), end=' ')
@@ -253,13 +251,16 @@ class Trainer(object):
         height, width = image_shape_np[1:3]
         pred_lists = []
         for masks, cls_scores, rpn_scores, rois in pred_np_arrays:
+            print(np.mean(rois[:, 3] - rois[:, 1]),
+                  np.mean(rois[:, 4] - rois[:, 2]),
+                  np.mean(masks))
             preds = []
             for i in range(masks.shape[0]):
-                print(cls_scores[i], rpn_scores[i], rois[i, :])
                 train_id = np.argmax(cls_scores[i])
                 if train_id == 0:
                     # Ignore background class
                     continue
+                print(cls_scores[i], rpn_scores[i], rois[i, 1:])
                 pred_dct = {}
                 pred_dct['imgId'] = "todo"
                 pred_dct['labelID'] = labels.trainId2label[train_id].id
@@ -269,11 +270,12 @@ class Trainer(object):
                 preds.append(pred_dct)
             pred_lists.append(preds)
 
-
         cs_avgs = evaluate_cs(pred_lists)
         max_images = min(len(summary_images), cfg.TEST.MAX_SUMMARY_IMAGES)
         for i, im in enumerate(summary_images[:max_images]):
-            tf.summary.image('cs_val_image_{}'.format(i), im, collections=['cs_val'])
+            tf.summary.image('cs_val_{}/image'.format(i), im, collections=['cs_val'])
+            #tf.summary.image('cs_val_{}/depth'.format(i), depth, collections=['cs_val'])
+            #tf.summary.image('cs_val_{}/gt_depth'.format(i), gt_depth, collections=['cs_val'])
 
         _summarize_value(cs_avgs['allAp'], 'Ap', 'allAp', 'cs_val')
         _summarize_value(cs_avgs['allAp50%'], 'Ap50', 'allAp', 'cs_val')

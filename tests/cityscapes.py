@@ -14,6 +14,7 @@ import numpy as np
 import PIL.Image as Image
 from PIL import ImageDraw
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 import _init_paths
 from model.config import cfg
@@ -27,10 +28,8 @@ with tf.Graph().as_default():
     tfrecords = glob.glob(file_pattern)
 
     with tf.device('/cpu:0'):
-        image, ih, iw, gt_boxes, gt_masks, num_instances, img_id = reader.read(tfrecords)
-        image, gt_boxes, gt_masks = preprocess_example(image, gt_boxes, gt_masks, is_training=True,
-                                                       normalize=False)
-        ih, iw = tf.unstack(tf.shape(image))[:2]
+        example = reader.read(tfrecords)
+        example = preprocess_example(example, is_training=True, normalize=False)
 
     sess = tf.Session()
     init_op = tf.group(
@@ -42,10 +41,25 @@ with tf.Graph().as_default():
     tf.train.start_queue_runners(sess=sess)
     with sess.as_default():
         for i in range(30):
-            image_np, ih_np, iw_np, gt_boxes_np, gt_masks_np, num_instances_np, img_id_np = \
-                sess.run([image, ih, iw, gt_boxes, gt_masks, num_instances, img_id])
-            img_id_np = img_id_np.decode('utf8')
-            print('image_id: {}, instances: {}, shape: {}'.format(img_id_np, num_instances_np, image_np.shape))
+            example_np = sess.run(example)
+            img_id_np = example_np['id'].decode('utf8')
+            image_np = example_np['image']
+            gt_boxes_np = example_np['boxes']
+            gt_masks_np = example_np['masks']
+            depth_np = example_np['depth']
+            #print(np.count_nonzero(np.isinf(depth_np)))
+            #import matplotlib.pyplot as plt
+            depth_mask = tf.to_float(
+                tf.logical_and(
+                    tf.logical_not(tf.is_inf(depth_np)),
+                    depth_np != 0))
+            print(sess.run(depth_mask))
+            print(sess.run(tf.reduce_sum(depth_np * depth_mask)))
+            #plt.imshow(depth_np[:, :, 0], cmap='gray')
+            #plt.show()
+            num_instances_np = gt_masks_np.shape[0]
+            print('image_id: {}, instances: {}, shape: {}'
+                  .format(img_id_np, num_instances_np, image_np.shape))
             image_np = np.squeeze(image_np)
 
             # overlay masks

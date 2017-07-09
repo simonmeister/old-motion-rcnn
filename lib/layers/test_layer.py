@@ -11,8 +11,8 @@ from boxes.nms_wrapper import nms
 from model.config import cfg
 
 
-def mask_layer(rois, roi_scores, cls_scores, cfg_key): # TODO rename this layer
-    """Returns (score-ordered) rois and scores for mask_branch.
+def test_layer(rois, roi_scores, cls_scores, cfg_key):
+    """Returns (score-ordered) rois and scores for mask branch.
 
     Args:
         rois: (T, 5)
@@ -24,7 +24,6 @@ def mask_layer(rois, roi_scores, cls_scores, cfg_key): # TODO rename this layer
         roi_scores: (M,)
         cls_scores: (M, num_classes)
     """
-
     topN = cfg.TEST.POST_NMS_TOP_N
     nms_thresh = cfg.TEST.NMS_THRESH
 
@@ -34,7 +33,6 @@ def mask_layer(rois, roi_scores, cls_scores, cfg_key): # TODO rename this layer
     rois = rois[keep, :]
     roi_scores = roi_scores[keep]
     cls_scores = cls_scores[keep, :]
-
     # Pick top scoring after nms
     order = roi_scores.ravel().argsort()[::-1]
     order = order[:topN]

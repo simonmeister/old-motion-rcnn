@@ -115,7 +115,7 @@ def bottleneck(inputs,
           scope='shortcut')
 
     residual = layers.conv2d(
-        inputs, depth_bottleneck, [1, 1], stride=1, scope='conv1')
+        inputs, depth_bottleneck, [1, 1], stride=1, scope='conv1') # TODO move stride here
     residual = resnet_utils.conv2d_same(
         residual, depth_bottleneck, 3, stride, rate=rate, scope='conv2')
     residual = layers.conv2d(

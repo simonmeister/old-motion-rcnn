@@ -116,12 +116,12 @@ def _create_tfexample(img_id, img, next_img, disparity_img, instance_img,
                       camera, vehicle):
     b = camera['extrinsic']['baseline']
     f = (camera['intrinsic']['fx'] + camera['intrinsic']['fy']) / 2.
-    disparity = (disparity_img.astype(float) - 1.) / 256.
+    disparity = (disparity_img.astype(np.float32) - 1.) / 256.
     depth = b * f / disparity
     depth[disparity_img == 0] = 0
     x0 = camera['intrinsic']['u0']
     y0 = camera['intrinsic']['v0']
-    # TODO variable for seqs of variable length... use sequence info to get exacter
+    # TODO variable for seqs of variable offset... use sequence info to get more exact
     frame_rate = 8.5
     # TODO calc from sequence data for more precise info when skipping frames - e.g. avg.
     # TODO do we have to use the camera extrinsics to get exact translation / yaw?

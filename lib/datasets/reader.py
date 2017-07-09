@@ -30,6 +30,7 @@ def read(tfrecord_filenames, shuffle=False, epochs=1):
             'label/num_instances': tf.FixedLenFeature([], tf.int64),
             'label/masks': tf.FixedLenFeature([], tf.string),
             'label/boxes': tf.FixedLenFeature([], tf.string),
+            'label/depth': tf.FixedLenFeature([], tf.string)
         })
     img_id = features['image/id']
     ih = tf.cast(features['image/height'], tf.int32)
@@ -46,4 +47,15 @@ def read(tfrecord_filenames, shuffle=False, epochs=1):
     masks = tf.decode_raw(features['label/masks'], tf.uint8)
     masks = tf.reshape(masks, [num_instances, ih, iw])
 
-    return image, ih, iw, boxes, masks, num_instances, img_id
+    # TODO what if gt has no depth? make more flexible..
+    # if 'label/depth' in features:
+    depth = tf.decode_raw(features['label/depth'], tf.float32)
+    depth = tf.reshape(depth, (ih, iw, 1))
+
+    return {
+        'image': image,
+        'boxes': boxes,
+        'masks': masks,
+        'depth': depth,
+        'id': img_id
+    }
