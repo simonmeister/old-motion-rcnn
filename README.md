@@ -1,4 +1,4 @@
-# Motion R-CNN
+# [OUTDATED - replaced by "models" repo] Motion R-CNN
 
 This repository contains the official TensorFlow implementation of
 [Motion R-CNN](TODO).
