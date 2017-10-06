@@ -1,10 +1,6 @@
-# [OUTDATED - replaced by "models" repo] Motion R-CNN
+# Old Motion R-CNN
 
-This repository contains the official TensorFlow implementation of
-[Motion R-CNN](TODO).
-As a baseline, training of
-[Mask R-CNN](https://arxiv.org/abs/1703.06870)
-on Cityscapes is supported.
+First attempt - switched to tensorflow object_detection. See the motion-rcnn repo.
 
 ## Requirements
 
