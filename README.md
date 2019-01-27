@@ -1,6 +1,7 @@
 # Old Motion R-CNN
 
-First attempt - switched to tensorflow object_detection. See the motion-rcnn repo.
+First attempt - switched to tensorflow object_detection. 
+See the [motion-rcnn](https://github.com/simonmeister/motion-rcnn) repo.
 
 ## Requirements
 
